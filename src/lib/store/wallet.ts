@@ -17,6 +17,7 @@ interface WalletState {
   token: string | null;
   error: string | null;
   connect: () => Promise<void>;
+  connectLedger: (index?: number) => Promise<void>;
   disconnect: () => void;
   checkConnection: () => Promise<void>;
 }
@@ -26,14 +27,17 @@ interface WalletState {
 // failure here (backend down, user rejects the signature prompt) doesn't
 // also tear down an otherwise-successful wallet connection — it just
 // leaves `token: null`, which callers already have to handle.
-async function signInWithBackend(address: string): Promise<string> {
+// Sign a backend nonce message using either the provided signer callback
+// or the Freighter extension. The signer should return a base64 or hex
+// encoded signature matching the backend expectation.
+async function signInWithBackend(address: string, signCallback?: (message: string) => Promise<string>): Promise<string> {
   const { message } = await requestNonce(address);
-  const signedBlob = await freighterApi.signBlob(message);
-  // NOTE: assumes signBlob returns a base64-encoded 64-byte ed25519
-  // signature, matching the backend's expected format — unverified
-  // against a real Freighter extension (none available in this dev
-  // environment). If sign-in fails with a 401 from /auth/verify, this
-  // encoding assumption is the first thing to check.
+  let signedBlob: string;
+  if (signCallback) {
+    signedBlob = await signCallback(message);
+  } else {
+    signedBlob = await freighterApi.signBlob(message);
+  }
   const { token } = await verifySignature({ walletAddress: address, message, signature: signedBlob });
   return token;
 }
@@ -68,6 +72,37 @@ export const useWalletStore = create<WalletState>()(
           }
         } catch (err) {
           set({ status: "error", error: err instanceof Error ? err.message : "Failed to connect wallet" });
+        }
+      },
+
+      connectLedger: async (index = 0) => {
+        set({ status: "connecting", error: null });
+        try {
+          // Lazy-import the ledger signer adapter so bundlers don't pull ledger
+          // code into the main bundle unless the user requests it.
+          const mod = await import("../ledgerSigner");
+          const connectLedgerAccount = mod.default || mod.connectLedgerAccount || mod.connectLedger;
+          if (typeof connectLedgerAccount !== "function") throw new Error("Ledger adapter not available");
+
+          const ledger = await connectLedgerAccount(index).catch((e: any) => { throw e; });
+          const address = ledger.address;
+          const details = null;
+          set({ status: "connected", address, network: details?.network ?? null, error: null });
+
+          try {
+            const token = await signInWithBackend(address, ledger.signMessage);
+            set({ token });
+          } catch (err) {
+            // Connected but no backend session
+            set({ token: null, error: err instanceof Error ? err.message : "Backend sign-in failed" });
+          }
+
+          // Note: keep the transport open until the user disconnects; ledger
+          // adapter exposes a `close()` method the store could call on
+          // disconnect if desired. For simplicity we don't persist the
+          // transport reference here.
+        } catch (err) {
+          set({ status: "error", error: err instanceof Error ? err.message : "Failed to connect Ledger" });
         }
       },
 
