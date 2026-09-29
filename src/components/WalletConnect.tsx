@@ -51,14 +51,14 @@ export function WalletConnect() {
       <button
         onClick={connect}
         disabled={status === "connecting"}
-      style={{
-        padding: "5px 12px", background: "var(--brand)", color: "var(--bg)",
-        border: "none", borderRadius: 0, fontSize: 12, fontWeight: 700,
-        cursor: status === "connecting" ? "default" : "pointer",
-        opacity: status === "connecting" ? 0.6 : 1,
-      }}
-    >
-      {status === "connecting" ? "Connecting…" : status === "error" ? "Retry" : "Connect"}
+        style={{
+          padding: "5px 12px", background: "var(--brand)", color: "var(--bg)",
+          border: "none", borderRadius: 0, fontSize: 12, fontWeight: 700,
+          cursor: status === "connecting" ? "default" : "pointer",
+          opacity: status === "connecting" ? 0.6 : 1,
+        }}
+      >
+        {status === "connecting" ? "Connecting…" : status === "error" ? "Retry" : "Connect"}
       </button>
 
       <button

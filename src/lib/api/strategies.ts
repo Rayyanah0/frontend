@@ -1,6 +1,7 @@
 import { apiPost } from "./client";
 import type { OpenPositionParams } from "./positions";
 import type { Position } from "./types";
+import { PositionListSchema } from "./schemas";
 
 export function executeStrategy(legs: OpenPositionParams[], token: string): Promise<Position[]> {
   return apiPost(
@@ -15,6 +16,7 @@ export function executeStrategy(legs: OpenPositionParams[], token: string): Prom
         contracts: leg.contracts,
       })),
     },
-    token
+    token,
+    PositionListSchema
   );
 }

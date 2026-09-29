@@ -1,8 +1,9 @@
 import { apiDelete, apiGet, apiPost } from "./client";
 import type { Alert, AlertCondition } from "./types";
+import { AlertListSchema, AlertSchema } from "./schemas";
 
 export function getAlerts(token: string): Promise<Alert[]> {
-  return apiGet("/api/v1/alerts", token);
+  return apiGet("/api/v1/alerts", token, AlertListSchema);
 }
 
 export function createAlert(
@@ -12,7 +13,8 @@ export function createAlert(
   return apiPost(
     "/api/v1/alerts",
     { underlying: params.underlying, condition: params.condition, target_price: params.targetPrice },
-    token
+    token,
+    AlertSchema
   );
 }
 

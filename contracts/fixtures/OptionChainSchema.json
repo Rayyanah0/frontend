@@ -1,0 +1,1 @@
+[{"strike":0.12,"expiry_days":30,"call":{"premium":0.01,"delta":0.5,"gamma":1,"theta":-0.1,"vega":0.2,"rho":0.01,"d1":0.1,"d2":0.05,"intrinsic":0,"time_value":0.01,"iv":0.6},"put":{"premium":0.01,"delta":-0.5,"gamma":1,"theta":-0.1,"vega":0.2,"rho":-0.01,"d1":0.1,"d2":0.05,"intrinsic":0,"time_value":0.01,"iv":0.6},"is_itm_call":false,"is_itm_put":true}]

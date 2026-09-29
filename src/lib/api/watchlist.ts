@@ -1,8 +1,9 @@
 import { apiDelete, apiGet, apiPost } from "./client";
 import type { WatchlistItem } from "./types";
+import { WatchlistSchema } from "./schemas";
 
 export function getWatchlist(token: string): Promise<WatchlistItem[]> {
-  return apiGet("/api/v1/watchlist", token);
+  return apiGet("/api/v1/watchlist", token, WatchlistSchema);
 }
 
 export function addToWatchlist(underlying: string, token: string): Promise<void> {

@@ -1,5 +1,7 @@
 import { apiPost } from "./client";
+import type { z } from "zod";
 import type { OptionType, PositionType } from "./types";
+import { PayoffResponseSchema } from "./schemas";
 
 export interface PayoffLeg {
   optionType: OptionType;
@@ -14,10 +16,7 @@ export interface PayoffPoint {
   pnl: number;
 }
 
-export interface PayoffResponse {
-  points: PayoffPoint[];
-  net_premium: number;
-}
+export type PayoffResponse = z.infer<typeof PayoffResponseSchema>;
 
 export function getCombinedPayoff(params: {
   legs: PayoffLeg[];
@@ -36,5 +35,5 @@ export function getCombinedPayoff(params: {
     lo_spot: params.loSpot,
     hi_spot: params.hiSpot,
     steps: params.steps,
-  });
+  }, undefined, PayoffResponseSchema);
 }

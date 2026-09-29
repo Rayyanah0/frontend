@@ -1,4 +1,5 @@
 import { apiGet, apiPost } from "./client";
+import { MeResponseSchema, NonceResponseSchema, VerifyResponseSchema } from "./schemas";
 
 export interface NonceResponse {
   nonce: string;
@@ -6,7 +7,7 @@ export interface NonceResponse {
 }
 
 export function requestNonce(walletAddress: string): Promise<NonceResponse> {
-  return apiPost("/api/v1/auth/nonce", { wallet_address: walletAddress });
+  return apiPost("/api/v1/auth/nonce", { wallet_address: walletAddress }, undefined, NonceResponseSchema);
 }
 
 export interface VerifyResponse {
@@ -23,9 +24,9 @@ export function verifySignature(params: {
     wallet_address: params.walletAddress,
     message: params.message,
     signature: params.signature,
-  });
+  }, undefined, VerifyResponseSchema);
 }
 
 export function getMe(token: string): Promise<{ wallet_address: string }> {
-  return apiGet("/api/v1/auth/me", token);
+  return apiGet("/api/v1/auth/me", token, MeResponseSchema);
 }
