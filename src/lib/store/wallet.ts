@@ -11,12 +11,17 @@ interface WalletState {
   network: string | null;
   /** Bearer token from the backend's sign-in-with-wallet flow. Wallet
    *  connection and backend login are separate steps — a wallet can be
-   *  connected with `token: null` if the sign step failed or is still
-   *  pending, and every store/component that calls an auth-gated
-   *  endpoint needs to handle that. */
+   * connected with `token: null` if the sign step failed or is still
+   * pending, and every store/component that calls an auth-gated
+   * endpoint needs to handle that. */
   token: string | null;
   error: string | null;
+  /** "ledger" when the connected wallet is a Ledger hardware wallet, else
+   * "freighter" (or null when disconnected). Used to gate Soroban tx signing
+   * and to show device-specific guidance. */
+  signerKind: "freighter" | "ledger" | null;
   connect: () => Promise<void>;
+  connectLedger: (accountIndex?: number) => Promise<void>;
   disconnect: () => void;
   checkConnection: () => Promise<void>;
 }
@@ -26,16 +31,25 @@ interface WalletState {
 // failure here (backend down, user rejects the signature prompt) doesn't
 // also tear down an otherwise-successful wallet connection — it just
 // leaves `token: null`, which callers already have to handle.
-async function signInWithBackend(address: string): Promise<string> {
+async function signInWithBackendFreighter(address: string): Promise<string> {
   const { message } = await requestNonce(address);
   const signedBlob = await freighterApi.signBlob(message);
-  // NOTE: assumes signBlob returns a base64-encoded 64-byte ed25519
-  // signature, matching the backend's expected format — unverified
-  // against a real Freighter extension (none available in this dev
-  // environment). If sign-in fails with a 401 from /auth/verify, this
-  // encoding assumption is the first thing to check.
   const { token } = await verifySignature({ walletAddress: address, message, signature: signedBlob });
-  return token;
+  return token as string;
+}
+
+// Signs the backend's nonce message with a Ledger device and exchanges it
+// for a bearer token. The ledger adapter returns a base64 signature of the
+// SHA-256 hash of the message, which the backend accepts in place of
+// Freighter's signBlob output (both are 64-byte ed25519 signatures).
+async function signInWithBackendLedger(
+  address: string,
+  signMessage: (message: string) => Promise<string>
+): Promise<string> {
+  const { message } = await requestNonce(address);
+  const signature = await signMessage(message);
+  const { token } = await verifySignature({ walletAddress: address, message, signature });
+  return token as string;
 }
 
 export const useWalletStore = create<WalletState>()(
@@ -46,6 +60,7 @@ export const useWalletStore = create<WalletState>()(
       network: null,
       token: null,
       error: null,
+      signerKind: null,
 
       connect: async () => {
         set({ status: "connecting", error: null });
@@ -57,10 +72,10 @@ export const useWalletStore = create<WalletState>()(
           }
           const address = await freighterApi.requestAccess();
           const details = await freighterApi.getNetworkDetails().catch(() => null);
-          set({ status: "connected", address, network: details?.network ?? null, error: null });
+          set({ status: "connected", address, network: details?.network ?? null, error: null, signerKind: "freighter" });
 
           try {
-            const token = await signInWithBackend(address);
+            const token = await signInWithBackendFreighter(address);
             set({ token });
           } catch (err) {
             // Wallet is connected either way; just no backend session yet.
@@ -71,7 +86,32 @@ export const useWalletStore = create<WalletState>()(
         }
       },
 
-      disconnect: () => set({ status: "idle", address: null, network: null, token: null, error: null }),
+      connectLedger: async (accountIndex = 0) => {
+        set({ status: "connecting", error: null });
+        try {
+          // Lazy-import the ledger signer adapter so bundlers don't pull ledger
+          // code into the main bundle unless the user requests it.
+          const mod = await import("../ledgerSigner");
+          const connectLedgerAccount = (mod as any).default || (mod as any).connectLedgerAccount;
+          if (typeof connectLedgerAccount !== "function") throw new Error("Ledger adapter not available");
+
+          const ledger = await connectLedgerAccount(accountIndex);
+          const address = ledger.address;
+          set({ status: "connected", address, network: null, error: null, signerKind: "ledger" });
+
+          try {
+            const token = await signInWithBackendLedger(address, ledger.signMessage);
+            set({ token });
+          } catch (err) {
+            // Connected but no backend session
+            set({ token: null, error: err instanceof Error ? err.message : "Backend sign-in failed" });
+          }
+        } catch (err) {
+          set({ status: "error", error: err instanceof Error ? err.message : "Failed to connect Ledger" });
+        }
+      },
+
+      disconnect: () => set({ status: "idle", address: null, network: null, token: null, error: null, signerKind: null }),
 
       // Re-verify a persisted session on load rather than trusting stale state.
       checkConnection: async () => {
@@ -85,7 +125,7 @@ export const useWalletStore = create<WalletState>()(
           }
           const address = await freighterApi.getPublicKey();
           const details = await freighterApi.getNetworkDetails().catch(() => null);
-          set({ status: "connected", address, network: details?.network ?? null });
+          set({ status: "connected", address, network: details?.network ?? null, signerKind: "freighter" });
 
           // A persisted token might still be valid (sessions last 24h) —
           // check before making the user sign a fresh message on every
@@ -100,7 +140,7 @@ export const useWalletStore = create<WalletState>()(
           if (stillValid) return;
 
           try {
-            const token = await signInWithBackend(address);
+            const token = await signInWithBackendFreighter(address);
             set({ token });
           } catch {
             set({ token: null });

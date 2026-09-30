@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MARKETS, bs, smileVol, fmtK } from "../../../lib/pricing";
 import { useBackendData } from "../../../lib/context/BackendDataContext";
 import { useSpotFeedContext } from "../../../lib/context/SpotFeedContext";
+import type { Position } from "../../../lib/api/types";
 
 interface Props{spot:number;vol:number;onBack:()=>void;}
 
@@ -17,7 +18,7 @@ export function PositionsTab({spot,vol,onBack}:Props){
   // /api/v1/portfolio/greeks does server-side: reprice at current
   // spot/vol for that position's own underlying, same static
   // expiry_days-as-t simplification the backend uses for closing.
-  const positionLiveGreeks=(pos:{underlying:string;strike:number;expiry_days:number;option_type:"call"|"put"})=>{
+  const positionLiveGreeks=(pos:Position)=>{
     const posSpot=spotData?.prices[pos.underlying]
       ?? MARKETS.find(m=>m.sym===pos.underlying)?.price ?? spot;
     const posVol=spotData?.vols[pos.underlying]

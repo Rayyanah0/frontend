@@ -47,8 +47,8 @@ export function closePosition(id: string, token: string): Promise<Position> {
 }
 
 export interface RollResult {
-  closed: Position;
-  opened: Position;
+  closed?: Position;
+  opened?: Position;
 }
 
 export function rollPosition(
