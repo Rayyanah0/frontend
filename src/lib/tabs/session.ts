@@ -2,17 +2,20 @@ import { useWalletStore } from "../store/wallet";
 import { broadcast, onTabMessage } from "./channel";
 
 /**
- * Propagates sign-in / sign-out / token refresh between tabs. Local store
- * changes to address/token/network are broadcast; incoming messages are
- * applied with setState (which doesn't trigger a Freighter prompt), and
- * the equality check below stops the two directions echoing forever.
+ * Propagates sign-in / sign-out between tabs. The session itself is an
+ * httpOnly cookie shared by every tab (#118), so only the non-secret
+ * address / session marker / network are broadcast. When one tab signs
+ * out, the others update their UI immediately instead of discovering it on
+ * the next 401. Incoming messages are applied with setState (which doesn't
+ * trigger a wallet prompt), and the equality check below stops the two
+ * directions echoing forever.
  */
 export function startSessionSync(): () => void {
   let last = snapshot();
 
   const unsubStore = useWalletStore.subscribe((s) => {
-    const next = { address: s.address, token: s.token, network: s.network };
-    if (next.address === last.address && next.token === last.token && next.network === last.network) return;
+    const next = { address: s.address, session: s.session, network: s.network };
+    if (next.address === last.address && next.session === last.session && next.network === last.network) return;
     last = next;
     broadcast({ type: "session", ...next });
   });
@@ -20,12 +23,12 @@ export function startSessionSync(): () => void {
   const unsubMsg = onTabMessage((msg) => {
     if (msg.type !== "session") return;
     const cur = useWalletStore.getState();
-    if (cur.address === msg.address && cur.token === msg.token && cur.network === msg.network) return;
-    last = { address: msg.address, token: msg.token, network: msg.network };
+    if (cur.address === msg.address && cur.session === msg.session && cur.network === msg.network) return;
+    last = { address: msg.address, session: msg.session, network: msg.network };
     useWalletStore.setState(
       msg.address
-        ? { status: "connected", address: msg.address, token: msg.token, network: msg.network, error: null }
-        : { status: "idle", address: null, token: null, network: null, error: null }
+        ? { status: "connected", address: msg.address, session: msg.session, network: msg.network, error: null }
+        : { status: "idle", address: null, session: null, sessionExpiresAt: null, network: null, error: null }
     );
   });
 
@@ -37,5 +40,5 @@ export function startSessionSync(): () => void {
 
 function snapshot() {
   const s = useWalletStore.getState();
-  return { address: s.address, token: s.token, network: s.network };
+  return { address: s.address, session: s.session, network: s.network };
 }

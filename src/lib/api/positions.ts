@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "./client";
+import { apiGet, apiPost, type RequestOptions } from "./client";
 import { AccountSchema, AggregateGreeksSchema, PositionListSchema, PositionSchema, RollResultSchema } from "./schemas";
 import type { Account, AggregateGreeks, OptionType, Position, PositionStatus, PositionType } from "./types";
 
@@ -26,7 +26,8 @@ export interface OpenPositionParams {
   contracts: number;
 }
 
-export function openPosition(params: OpenPositionParams, token: string): Promise<Position> {
+/** Pass `opts.idempotencyKey` (see useIdempotencyKey) so a resubmitted Confirm can't open twice. */
+export function openPosition(params: OpenPositionParams, token: string, opts?: RequestOptions): Promise<Position> {
   return apiPost(
     "/api/v1/positions/open",
     {
@@ -38,12 +39,13 @@ export function openPosition(params: OpenPositionParams, token: string): Promise
       contracts: params.contracts,
     },
     token,
-    PositionSchema
+    PositionSchema,
+    opts
   );
 }
 
-export function closePosition(id: string, token: string): Promise<Position> {
-  return apiPost(`/api/v1/positions/${id}/close`, undefined, token, PositionSchema);
+export function closePosition(id: string, token: string, opts?: RequestOptions): Promise<Position> {
+  return apiPost(`/api/v1/positions/${id}/close`, undefined, token, PositionSchema, opts);
 }
 
 export {
@@ -63,13 +65,15 @@ export interface RollResult {
 export function rollPosition(
   id: string,
   params: { newStrike: number; newExpiryDays: number },
-  token: string
+  token: string,
+  opts?: RequestOptions
 ): Promise<RollResult> {
   return apiPost(
     `/api/v1/positions/${id}/roll`,
     { new_strike: params.newStrike, new_expiry_days: params.newExpiryDays },
     token,
-    RollResultSchema
+    RollResultSchema,
+    opts
   );
 }
 

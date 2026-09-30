@@ -34,7 +34,7 @@ export interface ReconciliationResult {
 export function usePositionReconciliation(
   backendPositions: Position[]
 ): ReconciliationResult {
-  const { address, token } = useWalletStore();
+  const { address, session: token } = useWalletStore();
 
   const [onChainPositions, setOnChainPositions] = useState<OnChainPosition[]>([]);
   const [discrepancies, setDiscrepancies] = useState<PositionDiscrepancy[]>([]);

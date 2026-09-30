@@ -23,6 +23,8 @@ import type {
   PipelineEvent,
   SorobanFeeBreakdown,
 } from "./types";
+import { assertSignedMatchesReviewed, assertVerified, reviewTransaction, type ReviewedTransaction } from "./tx";
+import { getActiveNetworkConfig } from "./networks";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -187,7 +189,7 @@ export async function executeContractCall(
   onEvent: (event: PipelineEvent) => void,
   xlmUsdPrice: number | null = null
 ): Promise<ContractCallResult> {
-  const { contract, method, args, signer, priority = "standard", signal, meta } = params;
+  const { contract, method, args, signer, priority = "standard", signal, meta, intent, clearSign, onReview } = params;
   const txId = newTxId();
   const started = Date.now();
 
@@ -292,6 +294,31 @@ export async function executeContractCall(
 
   const assembledXdr = assembled.build().toXDR();
 
+  // --- STEP 2b: CLEAR-SIGNING REVIEW (#119) --------------------------------
+  // Decode the final assembled XDR — not the params above — and compare it
+  // with the UI's intent. A mismatch never reaches the wallet.
+
+  let review: ReviewedTransaction | null = null;
+  if (intent) {
+    try {
+      review = reviewTransaction(assembledXdr, NETWORK_PASSPHRASE, intent, clearSign ?? {
+        contracts: getActiveNetworkConfig().contracts,
+      });
+      assertVerified(review);
+    } catch (err) {
+      const humanError = err instanceof Error ? err.message : "Transaction verification failed";
+      emit({ stage: "failed", error: humanError, humanError, fees, assembledXdr });
+      throw err;
+    }
+    if (onReview) {
+      const approved = await onReview(review);
+      if (!approved) {
+        emit({ stage: "cancelled" });
+        throw Object.assign(new Error("Transaction cancelled by user"), { cancelled: true });
+      }
+    }
+  }
+
   // --- STEP 3: AWAIT SIGNATURE ---------------------------------------------
 
   emit({ stage: "awaiting_signature", fees, assembledXdr });
@@ -300,7 +327,12 @@ export async function executeContractCall(
   let signedXdr: string;
   try {
     signedXdr = await signer.signTransaction(assembledXdr);
+    if (review) assertSignedMatchesReviewed(review, signedXdr);
   } catch (err) {
+    if (err instanceof Error && err.name === "IntentMismatchError") {
+      emit({ stage: "failed", error: err.message, humanError: err.message, fees, assembledXdr });
+      throw err;
+    }
     if (signal?.aborted) {
       emit({ stage: "cancelled" });
       throw Object.assign(new Error("Transaction cancelled by user"), { cancelled: true });

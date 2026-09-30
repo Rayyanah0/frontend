@@ -1,0 +1,11 @@
+# Crowdin sync for message catalogs (#116). See docs/i18n.md.
+# English is the source; Crowdin writes translations back as messages/<locale>.json.
+project_id_env: CROWDIN_PROJECT_ID
+api_token_env: CROWDIN_PERSONAL_TOKEN
+preserve_hierarchy: true
+files:
+  - source: /messages/en.json
+    translation: /messages/%two_letters_code%.json
+    # ICU MessageFormat: keeps {placeholders}, plurals and <tags> intact in the editor.
+    type: json
+    content_segmentation: 0

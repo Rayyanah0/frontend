@@ -1,0 +1,144 @@
+{
+  "metadata": {
+    "title": "Zenith | Opciones on-chain en Stellar",
+    "description": "Compra y emite opciones europeas de compra y venta sobre XLM, BTC, ETH y SOL. El primer protocolo descentralizado de opciones en Stellar Soroban."
+  },
+  "common": {
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "copyFullValue": "Copiar valor completo",
+    "copyValue": "Copiar {value}",
+    "offline": "Estás sin conexión: el trading está deshabilitado.",
+    "comingSoon": "Próximamente"
+  },
+  "nav": {
+    "chain": "Cadena",
+    "optionsChain": "Cadena de opciones",
+    "portfolio": "Cartera",
+    "history": "Historial",
+    "vaults": "Bóvedas",
+    "settings": "Ajustes",
+    "docs": "Docs",
+    "tradeOptions": "Operar opciones"
+  },
+  "header": {
+    "balance": "Saldo",
+    "locked": "({amount} bloqueado)",
+    "goToPortfolio": "Ir a la cartera"
+  },
+  "locale": {
+    "label": "Idioma",
+    "switchTo": "Cambiar idioma a {language}"
+  },
+  "session": {
+    "expired": "La sesión expiró: inicia sesión para ver tus posiciones.",
+    "expiresIn": "La sesión expira en {minutes, plural, one {# min} other {# min}}.",
+    "signIn": "Iniciar sesión",
+    "resignNow": "Volver a firmar"
+  },
+  "confirm": {
+    "blocked": "La firma está bloqueada porque la transacción no coincide con tu orden."
+  },
+  "clearSign": {
+    "reviewTitle": "Revisar transacción",
+    "continueToWallet": "Continuar a la billetera",
+    "detailsLabel": "Detalles de la transacción",
+    "mismatchTitle": "Esta transacción no coincide con tu orden. La firma está bloqueada.",
+    "mismatchItem": "{field}: se esperaba {expected}, se obtuvo {actual}",
+    "verified": "✓ Decodificada de la transacción final y coincide con tu orden.",
+    "unknownContract": "Contrato no reconocido: se muestran los datos sin procesar. Continúa solo si esperabas esta llamada.",
+    "unknownFunction": "Función no reconocida: se muestran los datos sin procesar. Continúa solo si esperabas esta llamada.",
+    "nonContractOperation": "Operación que no es de contrato: {type}",
+    "authorizing": "Estás autorizando",
+    "noAuthorizations": "Sin autorizaciones de contrato.",
+    "sourceAccountAuth": "Firmado con la firma de tu transacción",
+    "addressAuth": "Autorización separada para {address}",
+    "addressAuthExpiry": "Autorización separada para {address} · expira en el ledger #{ledger}",
+    "maxFee": "Comisión máxima",
+    "resourceFee": "Comisión de recursos",
+    "source": "Origen",
+    "txHash": "Hash de tx",
+    "showRaw": "Mostrar XDR sin procesar",
+    "hideRaw": "Ocultar XDR sin procesar"
+  },
+  "home": {
+    "network": "Stellar Testnet",
+    "eyebrow": "El primer protocolo de opciones en Stellar",
+    "headline": "Puts y calls<br></br>on-chain en Stellar.",
+    "intro": "Compra opciones europeas sobre XLM, BTC, ETH y SOL. Emite calls cubiertas para ganar prima. Precios Black-Scholes. Liquidación completa en Stellar Soroban.",
+    "openChain": "Abrir cadena de opciones →",
+    "viewGithub": "Ver en GitHub",
+    "stats": {
+      "openInterest": "Interés abierto",
+      "activeSeries": "Series activas",
+      "traders": "Traders",
+      "avgIv": "VI media"
+    },
+    "example": "Ejemplo · Call XLM 30D · K={strike}",
+    "profitZone": "Zona de ganancia (sobre el punto de equilibrio)",
+    "maxLoss": "Pérdida máxima = prima pagada",
+    "livePreview": "Vista previa en vivo",
+    "chainTitle": "Cadena de opciones XLM-USD · 30D",
+    "live": "En vivo",
+    "staticSnapshot": "Instantánea estática",
+    "fullChain": "Cadena completa →",
+    "columns": {
+      "vol": "Vol",
+      "oi": "IA",
+      "bid": "Compra",
+      "ask": "Venta",
+      "iv": "VI",
+      "strike": "Strike"
+    },
+    "atm": "ATM",
+    "itmCall": "Call ITM",
+    "atmStrike": "Strike ATM",
+    "clickToTrade": "Haz clic en el precio de venta para operar",
+    "watchlist": "Favoritos",
+    "watchlistEmpty": "Marca un mercado con estrella en la <link>cadena de opciones</link> para verlo aquí.",
+    "ivValue": "VI {value}",
+    "protocol": "Protocolo",
+    "howItWorks": "Cómo funciona Zenith",
+    "steps": {
+      "buyer": {
+        "side": "Comprador",
+        "title": "Compra una call o una put",
+        "body": "Paga una prima en USDC. Si la opción vence dentro del dinero, recibes la diferencia entre el spot y el strike × tus contratos. La pérdida máxima es la prima pagada."
+      },
+      "writer": {
+        "side": "Emisor",
+        "title": "Emite opciones cubiertas",
+        "body": "Bloquea colateral (110 %+ para puts, 100 % para calls cubiertas) y recibe la prima de inmediato. Si la opción vence sin valor, te lo quedas todo. Si se ejerce, tu colateral cubre el pago."
+      },
+      "pricing": {
+        "side": "Precios",
+        "title": "Black-Scholes con sonrisa de volatilidad",
+        "body": "Las primas usan la fórmula de Black-Scholes con una sonrisa de volatilidad cripto realista: más VI para puts OTM, menos para ATM y alas algo más inclinadas. Griegas (Δ, Γ, Θ, V) disponibles por opción."
+      },
+      "settlement": {
+        "side": "Liquidación",
+        "title": "Liquidación por oráculo al vencimiento",
+        "body": "El oráculo Reflector publica el precio spot final on-chain al vencimiento. Los tenedores tienen 24 horas para ejercer. Los emisores recuperan el colateral no utilizado. Totalmente sin custodia."
+      }
+    },
+    "footer": "Zenith Protocol · Licencia MIT · Stellar Soroban",
+    "discord": "Discord"
+  },
+  "settings": {
+    "title": "Ajustes",
+    "intro": "Gestiona los datos locales de tu espacio de trabajo: estrategias guardadas, diseños, atajos y preferencias.",
+    "dataPortability": "Portabilidad de datos",
+    "language": "Idioma",
+    "languageHelp": "Los números y las fechas siguen el idioma seleccionado. Los precios mantienen la precisión de cada instrumento.",
+    "preferences": "Preferencias",
+    "preferencesSoon": "Tema, formato numérico y ajustes de cadena predeterminados próximamente.",
+    "hotkeys": "Atajos de teclado",
+    "hotkeysSoon": "Atajos de teclado personalizados próximamente. Exporta/importa tus atajos arriba."
+  },
+  "notFound": {
+    "title": "Página no encontrada",
+    "back": "Volver a la terminal"
+  }
+}

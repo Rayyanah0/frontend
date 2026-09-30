@@ -1,0 +1,151 @@
+name: Preview Deployment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_target:
+    types: [labeled]
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+
+jobs:
+  preview-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ contains(github.event.pull_request.labels.*.name, 'staging') }}" == "true" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "backend_url=${{ secrets.STAGING_API_URL }}" >> $GITHUB_OUTPUT
+          else
+            echo "environment=mock" >> $GITHUB_OUTPUT
+            echo "backend_url=http://localhost:3001" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js app
+        env:
+          NEXT_PUBLIC_API_URL: ${{ steps.env.outputs.backend_url }}
+          NEXT_PUBLIC_STELLAR_NETWORK: ${{ vars.NEXT_PUBLIC_STELLAR_NETWORK }}
+          NEXT_PUBLIC_STELLAR_TESTNET_CONTRACT_ID: ${{ vars.NEXT_PUBLIC_STELLAR_TESTNET_CONTRACT_ID }}
+          NEXT_PUBLIC_STELLAR_MAINNET_CONTRACT_ID: ${{ vars.NEXT_PUBLIC_STELLAR_MAINNET_CONTRACT_ID }}
+        run: |
+          npm run build
+
+      - name: Create deployment
+        id: deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.payload.pull_request.head.sha,
+              environment: 'preview-pr-${{ github.event.pull_request.number }}',
+              description: 'Preview deployment for PR #${{ github.event.pull_request.number }}',
+              auto_merge: false,
+              required_contexts: [],
+            });
+            core.setOutput('deployment_id', deployment.data.id);
+
+      - name: Generate preview URL
+        id: preview-url
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          COMMIT_SHA=${{ github.event.pull_request.head.sha }}
+          SHORT_SHA=${COMMIT_SHA:0:7}
+          PREVIEW_URL="https://preview-pr-${PR_NUMBER}.preview.example.com"
+          echo "preview_url=${PREVIEW_URL}" >> $GITHUB_OUTPUT
+          echo "commit_sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Create deployment status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const preview_url = '${{ steps.preview-url.outputs.preview_url }}';
+            github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deployment.outputs.deployment_id }},
+              state: 'success',
+              environment_url: preview_url,
+              description: 'Preview deployment ready',
+            });
+
+      - name: Comment PR with preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const preview_url = '${{ steps.preview-url.outputs.preview_url }}';
+            const short_sha = '${{ steps.preview-url.outputs.short_sha }}';
+            const pr_number = context.payload.pull_request.number;
+
+            const comment = `## Preview Deployment Ready 🚀
+
+**Environment:** ${{ steps.env.outputs.environment }}
+
+**Preview URL:** [${preview_url}](${preview_url})
+
+**PR:** #${pr_number}
+**Commit:** ${short_sha}
+
+> **Note:** This preview uses the **${{ steps.env.outputs.environment }}** backend. Add the \`staging\` label to use staging backend instead of mock.
+> Preview deployments include \`robots: noindex\` to prevent indexing by search engines.`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr_number,
+            });
+
+            const existing_comment = comments.find(c => c.body.includes('Preview Deployment Ready'));
+
+            if (existing_comment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing_comment.id,
+                body: comment,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr_number,
+                body: comment,
+              });
+            }
+
+      - name: Cleanup on PR close
+        if: github.event.action == 'closed'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment_state = 'inactive';
+            github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ steps.deployment.outputs.deployment_id }},
+              state: deployment_state,
+              description: 'Deployment inactive',
+            });

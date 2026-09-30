@@ -8,6 +8,7 @@ import { sendNotification } from '../lib/notify';
 import { ApiError } from '../lib/api/client';
 import { fmtN } from '../lib/pricing';
 import type { SettlementEntry } from '../lib/api/settlement';
+import { EXTERNAL_LINK_REL, safeText, safeUrl } from '../lib/sanitize';
 
 function fmtTimestamp(iso: string): string {
   try {
@@ -25,7 +26,7 @@ function truncateHash(hash: string): string {
 }
 
 export function SettlementCenter() {
-  const token = useWalletStore(s => s.token);
+  const token = useWalletStore(s => s.session);
   const { refreshAccount } = useBackendData();
   const { entries, loading, refresh, claim, reclaim, claimBatch } = useBackendSettlement(token);
 
@@ -265,17 +266,17 @@ export function SettlementCenter() {
                       ${fmtN(entry.settlement_price, 4)}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--text-lo)', marginTop: 2 }}>
-                      {entry.settlement_price_source_url ? (
+                      {safeUrl(entry.settlement_price_source_url) ? (
                         <a
-                          href={entry.settlement_price_source_url}
+                          href={safeUrl(entry.settlement_price_source_url)!}
                           target="_blank"
-                          rel="noopener noreferrer"
+                          rel={EXTERNAL_LINK_REL}
                           style={{ color: 'var(--brand)', textDecoration: 'none' }}
                         >
-                          {entry.settlement_price_source}
+                          {safeText(entry.settlement_price_source, { maxLength: 60 })}
                         </a>
                       ) : (
-                        <span>{entry.settlement_price_source}</span>
+                        <span>{safeText(entry.settlement_price_source, { maxLength: 60 })}</span>
                       )}
                       {' · '}{fmtTimestamp(entry.settlement_price_timestamp)}
                     </div>

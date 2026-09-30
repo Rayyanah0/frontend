@@ -1,0 +1,144 @@
+{
+  "metadata": {
+    "title": "Zenith | On-chain Options on Stellar",
+    "description": "Buy and write European put and call options on XLM, BTC, ETH, and SOL. The first decentralized options protocol on Stellar Soroban."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFullValue": "Copy full value",
+    "copyValue": "Copy {value}",
+    "offline": "You are offline — trading is disabled.",
+    "comingSoon": "Coming soon"
+  },
+  "nav": {
+    "chain": "Chain",
+    "optionsChain": "Options Chain",
+    "portfolio": "Portfolio",
+    "history": "History",
+    "vaults": "Vaults",
+    "settings": "Settings",
+    "docs": "Docs",
+    "tradeOptions": "Trade Options"
+  },
+  "header": {
+    "balance": "Balance",
+    "locked": "({amount} locked)",
+    "goToPortfolio": "Go to portfolio"
+  },
+  "locale": {
+    "label": "Language",
+    "switchTo": "Switch language to {language}"
+  },
+  "session": {
+    "expired": "Session expired — sign in to see your positions.",
+    "expiresIn": "Session expires in {minutes, plural, one {# min} other {# min}}.",
+    "signIn": "Sign in",
+    "resignNow": "Re-sign now"
+  },
+  "confirm": {
+    "blocked": "Signing is blocked because the transaction does not match your order."
+  },
+  "clearSign": {
+    "reviewTitle": "Review transaction",
+    "continueToWallet": "Continue to wallet",
+    "detailsLabel": "Transaction details",
+    "mismatchTitle": "This transaction does not match your order. Signing is blocked.",
+    "mismatchItem": "{field}: expected {expected}, got {actual}",
+    "verified": "✓ Decoded from the final transaction and matches your order.",
+    "unknownContract": "Unrecognised contract — shown as raw data. Only continue if you expected this call.",
+    "unknownFunction": "Unrecognised function — shown as raw data. Only continue if you expected this call.",
+    "nonContractOperation": "Non-contract operation: {type}",
+    "authorizing": "You are authorizing",
+    "noAuthorizations": "No contract authorizations.",
+    "sourceAccountAuth": "Signed by your transaction signature",
+    "addressAuth": "Separate authorization for {address}",
+    "addressAuthExpiry": "Separate authorization for {address} · expires at ledger #{ledger}",
+    "maxFee": "Max fee",
+    "resourceFee": "Resource fee",
+    "source": "Source",
+    "txHash": "Tx hash",
+    "showRaw": "Show raw XDR",
+    "hideRaw": "Hide raw XDR"
+  },
+  "home": {
+    "network": "Stellar Testnet",
+    "eyebrow": "First options protocol on Stellar",
+    "headline": "On-chain puts &<br></br>calls on Stellar.",
+    "intro": "Buy European options on XLM, BTC, ETH, and SOL. Write covered calls to earn premium. Black-Scholes pricing. Full settlement on Stellar Soroban.",
+    "openChain": "Open Options Chain →",
+    "viewGithub": "View on GitHub",
+    "stats": {
+      "openInterest": "Open Interest",
+      "activeSeries": "Active Series",
+      "traders": "Traders",
+      "avgIv": "Avg IV"
+    },
+    "example": "Example · XLM 30D Call · K={strike}",
+    "profitZone": "Profit zone (above breakeven)",
+    "maxLoss": "Max loss = premium paid",
+    "livePreview": "Live Preview",
+    "chainTitle": "XLM-USD Options Chain · 30D",
+    "live": "Live",
+    "staticSnapshot": "Static snapshot",
+    "fullChain": "Full chain →",
+    "columns": {
+      "vol": "Vol",
+      "oi": "OI",
+      "bid": "Bid",
+      "ask": "Ask",
+      "iv": "IV",
+      "strike": "Strike"
+    },
+    "atm": "ATM",
+    "itmCall": "ITM Call",
+    "atmStrike": "ATM Strike",
+    "clickToTrade": "Click ask price to trade",
+    "watchlist": "Watchlist",
+    "watchlistEmpty": "Star a market on the <link>options chain</link> to see it here.",
+    "ivValue": "IV {value}",
+    "protocol": "Protocol",
+    "howItWorks": "How Zenith works",
+    "steps": {
+      "buyer": {
+        "side": "Buyer",
+        "title": "Buy a call or put",
+        "body": "Pay a USDC premium. If the option expires in-the-money, you receive the difference between spot and strike × your contracts. Maximum loss is the premium paid."
+      },
+      "writer": {
+        "side": "Writer",
+        "title": "Write covered options",
+        "body": "Lock collateral (110%+ for puts, 100% for covered calls), receive the premium immediately. If the option expires worthless, you keep everything. If exercised, your collateral covers the payout."
+      },
+      "pricing": {
+        "side": "Pricing",
+        "title": "Black-Scholes with vol smile",
+        "body": "Premiums use the Black-Scholes formula with a realistic crypto vol smile — higher IV for OTM puts, lower for ATM, slight wing steepening. Greeks (Δ, Γ, Θ, V) available per option."
+      },
+      "settlement": {
+        "side": "Settlement",
+        "title": "Oracle settlement at expiry",
+        "body": "The Reflector oracle posts the final spot price on-chain at expiry. Option holders have 24 hours to exercise. Writers reclaim unused collateral. Fully non-custodial."
+      }
+    },
+    "footer": "Zenith Protocol · MIT License · Stellar Soroban",
+    "discord": "Discord"
+  },
+  "settings": {
+    "title": "Settings",
+    "intro": "Manage your local workspace data — saved strategies, layouts, hotkeys, and preferences.",
+    "dataPortability": "Data Portability",
+    "language": "Language",
+    "languageHelp": "Numbers and dates follow the selected language. Prices keep each instrument's precision.",
+    "preferences": "Preferences",
+    "preferencesSoon": "Theme, number format, and default chain settings coming soon.",
+    "hotkeys": "Hotkeys",
+    "hotkeysSoon": "Custom keyboard shortcut bindings coming soon. Export/import your bindings above."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "back": "Back to the terminal"
+  }
+}

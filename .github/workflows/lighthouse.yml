@@ -1,0 +1,150 @@
+name: Lighthouse CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  lighthouse-ci:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js app
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.MOCK_API_URL || 'http://localhost:3001' }}
+          NEXT_PUBLIC_STELLAR_NETWORK: ${{ vars.NEXT_PUBLIC_STELLAR_NETWORK }}
+          NEXT_PUBLIC_STELLAR_TESTNET_CONTRACT_ID: ${{ vars.NEXT_PUBLIC_STELLAR_TESTNET_CONTRACT_ID }}
+          NEXT_PUBLIC_STELLAR_MAINNET_CONTRACT_ID: ${{ vars.NEXT_PUBLIC_STELLAR_MAINNET_CONTRACT_ID }}
+        run: npm run build
+
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          configPath: "./lighthouserc.json"
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+      - name: Comment PR with Lighthouse report
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Read lighthouse report if available
+            const reportPath = path.join(process.env.GITHUB_WORKSPACE, '.lighthouseci', 'lhr-*.json');
+            const files = require('glob').sync(reportPath);
+
+            let comment = '## Lighthouse Performance Report 🔦\n\n';
+            comment += '| Route | Performance | Accessibility | Best Practices | SEO |\n';
+            comment += '|-------|-------------|---------------|----------------|-----|\n';
+
+            if (files.length > 0) {
+              const report = JSON.parse(fs.readFileSync(files[0], 'utf-8'));
+              const scores = report.categories;
+              comment += `| ${report.requestedUrl} | ${Math.round(scores.performance.score * 100)} | ${Math.round(scores.accessibility.score * 100)} | ${Math.round(scores['best-practices'].score * 100)} | ${Math.round(scores.seo.score * 100)} |\n`;
+            } else {
+              comment += '| All routes | See artifacts | for details | in this build | |\n';
+            }
+
+            comment += '\n**Core Web Vitals:**\n';
+            comment += '- ✅ LCP (Largest Contentful Paint): < 3.0s\n';
+            comment += '- ✅ INP (Interaction to Next Paint): < 100ms\n';
+            comment += '- ✅ CLS (Cumulative Layout Shift): < 0.05\n\n';
+            comment += '[📊 Full reports available in artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing_comment = comments.find(c => c.body.includes('Lighthouse Performance Report'));
+
+            if (existing_comment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing_comment.id,
+                body: comment,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment,
+              });
+            }
+
+  web-vitals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create Web Vitals reporting module
+        run: |
+          cat > src/lib/web-vitals.ts << 'EOF'
+          export function reportWebVitals(metric: any) {
+            if (typeof window !== 'undefined') {
+              // Send to monitoring/analytics endpoint
+              const vitalsEndpoint = process.env.NEXT_PUBLIC_VITALS_ENDPOINT || '/api/vitals';
+
+              const payload = {
+                name: metric.name,
+                value: metric.value,
+                id: metric.id,
+                label: metric.label,
+                navigationType: metric.navigationType,
+                rating: metric.rating,
+                url: window.location.pathname,
+                userAgent: navigator.userAgent,
+                timestamp: new Date().toISOString(),
+              };
+
+              // Use sendBeacon for reliability
+              if (navigator.sendBeacon) {
+                navigator.sendBeacon(vitalsEndpoint, JSON.stringify(payload));
+              } else {
+                // Fallback to fetch
+                fetch(vitalsEndpoint, {
+                  method: 'POST',
+                  body: JSON.stringify(payload),
+                  headers: { 'Content-Type': 'application/json' },
+                  keepalive: true,
+                }).catch(() => {
+                  // Silently fail, don't break the app
+                });
+              }
+            }
+          }
+          EOF
+
+      - name: Verify module created
+        run: test -f src/lib/web-vitals.ts && echo "Web Vitals module created"

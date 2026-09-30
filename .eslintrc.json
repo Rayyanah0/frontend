@@ -7,6 +7,66 @@
         "object": "process",
         "property": "env",
         "message": "Read configuration through src/env.ts."
+      },
+      {
+        "object": "document",
+        "property": "write",
+        "message": "document.write is an XSS sink. Render through React instead."
+      },
+      {
+        "object": "document",
+        "property": "writeln",
+        "message": "document.writeln is an XSS sink. Render through React instead."
+      }
+    ],
+    "react/no-danger": "error",
+    "react/no-danger-with-children": "error",
+    "react/jsx-no-script-url": ["error", [{ "name": "Link", "props": ["href"] }]],
+    "no-script-url": "error",
+    "react/jsx-no-target-blank": [
+      "error",
+      { "allowReferrer": false, "enforceDynamicLinks": "always", "warnOnSpreadAttributes": true, "links": true, "forms": true }
+    ],
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "AssignmentExpression[left.property.name=/^(innerHTML|outerHTML)$/]",
+        "message": "innerHTML/outerHTML are XSS sinks. Use <SafeMarkdown>/<SafeText> (src/lib/sanitize.ts)."
+      },
+      {
+        "selector": "CallExpression[callee.property.name='insertAdjacentHTML']",
+        "message": "insertAdjacentHTML is an XSS sink. Use <SafeMarkdown>/<SafeText>."
+      },
+      {
+        "selector": "CallExpression[callee.property.name='createContextualFragment']",
+        "message": "createContextualFragment parses HTML. Use <SafeMarkdown>/<SafeText>."
+      },
+      {
+        "selector": "JSXAttribute[name.name='href'] > Literal[value=/^\\s*(javascript|data|vbscript):/i]",
+        "message": "Dangerous URL scheme in href."
+      },
+      {
+        "selector": "JSXAttribute[name.name='href'] > JSXExpressionContainer > TemplateLiteral > TemplateElement[value.raw=/^\\s*(javascript|data|vbscript):/i]",
+        "message": "Dangerous URL scheme in href."
+      }
+    ],
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "rehype-raw",
+            "message": "Raw HTML in markdown is not allowed. Use <SafeMarkdown>."
+          },
+          {
+            "name": "react-markdown",
+            "message": "Render markdown through src/components/SafeMarkdown.tsx (single reviewed sanitize schema)."
+          },
+          {
+            "name": "rehype-sanitize",
+            "message": "Use SANITIZE_SCHEMA from src/lib/sanitize.ts via <SafeMarkdown>; no per-feature schemas."
+          }
+        ]
       }
     ]
   },
@@ -14,6 +74,14 @@
     {
       "files": ["src/env.ts", "next.config.js", "src/app/api/runtime-config/route.ts"],
       "rules": { "no-restricted-properties": "off" }
+    },
+    {
+      "files": ["src/components/TrustedHtml.tsx"],
+      "rules": { "react/no-danger": "off" }
+    },
+    {
+      "files": ["src/components/SafeMarkdown.tsx", "src/lib/sanitize.ts"],
+      "rules": { "no-restricted-imports": "off" }
     }
   ]
 }

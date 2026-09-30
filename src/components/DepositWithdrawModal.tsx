@@ -50,7 +50,7 @@ export function DepositWithdrawModal({
   const [history, setHistory] = useState<VaultEvent[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const { address, token } = useWalletStore();
+  const { address, session: token } = useWalletStore();
   const { account: backendAccount, refreshAccount } = useBackendData();
   const { readiness, refresh: refreshReadiness } = useAccountReadiness();
   const networkReady = useNetworkReady();

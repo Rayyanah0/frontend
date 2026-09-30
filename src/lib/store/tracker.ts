@@ -6,6 +6,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { PipelineStage, SorobanFeeBreakdown, ContractCallMeta, ContractCallParams } from "../soroban/types";
 import { explorerUrl } from "../soroban/pipeline";
+import type { TxIntent } from "../soroban/intent";
 import { sendNotification } from "../notify";
 
 // ---------------------------------------------------------------------------
@@ -55,6 +56,8 @@ export interface SerializedRetryParams {
   meta?: ContractCallMeta;
   label: string;
   priority?: "standard" | "fast";
+  /** Clear-signing intent (#119) — plain JSON, so retries are verified too. */
+  intent?: TxIntent;
 }
 
 // ---------------------------------------------------------------------------

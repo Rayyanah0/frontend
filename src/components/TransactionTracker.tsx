@@ -303,6 +303,7 @@ function RetryButton({ entry }: { entry: TrackerEntry }) {
           signer,
           priority: retryParams.priority,
           meta: retryParams.meta,
+          intent: retryParams.intent,
         },
         handler
       );

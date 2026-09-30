@@ -1,0 +1,157 @@
+name: Perf Regression
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+  # Allow manual runs to update the baseline.
+  workflow_dispatch:
+    inputs:
+      update_baseline:
+        description: "Commit latest results as the new baseline"
+        required: false
+        default: "false"
+        type: choice
+        options: ["true", "false"]
+
+permissions:
+  contents: write   # needed only for the baseline-update path
+  pull-requests: write
+
+# Cancel any in-progress run for the same PR/branch so slow machines
+# don't queue up redundant perf runs.
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  perf:
+    name: Render Performance Harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      # ── Checkout ─────────────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+
+      # ── Node + npm cache ─────────────────────────────────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Install Playwright browsers (Chromium only) ───────────────────────────
+      - name: Install Playwright (Chromium)
+        run: npx playwright install --with-deps chromium
+
+      # ── Build the Next.js app in dev mode so __perf route is available ────────
+      # We start the server in the background and wait for it to be ready.
+      - name: Start dev server
+        run: |
+          # Copy example env so Next.js env validation passes.
+          cp .env.local.example .env.local 2>/dev/null || true
+          npm run dev &
+          # Wait up to 60 s for the server to respond.
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/__perf > /dev/null 2>&1; then
+              echo "Dev server ready."
+              break
+            fi
+            sleep 2
+          done
+        env:
+          NODE_ENV: development
+          NEXT_PUBLIC_API_URL: http://localhost:8081
+          NEXT_PUBLIC_STELLAR_NETWORK: testnet
+          NEXT_PUBLIC_STELLAR_TESTNET_CONTRACT_ID: CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4
+          # Skip env validation error for optional fields
+          SKIP_ENV_VALIDATION: "1"
+
+      # ── Run the perf harness ──────────────────────────────────────────────────
+      - name: Run performance harness
+        id: perf_run
+        run: |
+          npx playwright test \
+            --config=playwright.perf.config.ts \
+            --project=perf-chromium \
+            --reporter=list
+        env:
+          PERF_BASE_URL: http://localhost:3000
+
+      # ── Upload trace and result artifacts ─────────────────────────────────────
+      - name: Upload Playwright traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-traces-${{ github.run_id }}
+          path: |
+            test-results/
+            e2e/perf/results/
+          retention-days: 30
+
+      # ── Post regression summary to PR ─────────────────────────────────────────
+      - name: Comment regression results on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'e2e/perf/results/latest.json';
+            if (!fs.existsSync(path)) {
+              console.log('No results file found, skipping comment.');
+              return;
+            }
+            const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const rows = report.results.map(r =>
+              `| ${r.scenario} | ${r.commitCount} | ${r.totalRenderMs.toFixed(1)} | ${r.p50RenderMs.toFixed(2)} | ${r.p95RenderMs.toFixed(2)} | ${r.totalLongTaskMs.toFixed(0)} |`
+            ).join('\n');
+            const body = [
+              '## ⚡ Render Performance Report',
+              '',
+              `**Revision:** \`${report.revision}\`  `,
+              `**Recorded:** ${report.recordedAt}`,
+              '',
+              '| Scenario | Commits | Total render (ms) | p50 (ms) | p95 (ms) | Long tasks (ms) |',
+              '|---|---|---|---|---|---|',
+              rows,
+              '',
+              '_Baseline: `contracts/perf/baseline.json`. Threshold: 20%. [How to update baseline](docs/PERFORMANCE.md#updating-the-baseline)_',
+            ].join('\n');
+
+            // Find and update existing comment, or create a new one.
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.startsWith('## ⚡ Render Performance Report'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      # ── Optional: update baseline on manual dispatch ──────────────────────────
+      - name: Update baseline
+        if: github.event.inputs.update_baseline == 'true'
+        run: |
+          cp e2e/perf/results/latest.json contracts/perf/baseline.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add contracts/perf/baseline.json
+          git commit -m "chore(perf): update performance baseline [skip ci]"
+          git push

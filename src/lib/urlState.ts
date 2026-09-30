@@ -1,5 +1,7 @@
 import { EXPIRIES, MARKETS } from "./pricing";
 import { STRATEGY_TEMPLATES } from "./strategies";
+import type { z } from "zod";
+import { integerSchema, priceSchema, quantitySchema } from "./validation/schemas";
 
 /**
  * URL-addressable terminal state. Every param is validated against an
@@ -31,26 +33,35 @@ export const URL_DEFAULTS: TerminalUrlState = {
 const MAX_QTY = 1_000_000;
 const MAX_STRIKE = 1_000_000_000;
 
-const posNumber = (raw: string | null, max: number): number | null => {
-  if (raw === null || !/^\d{1,12}(\.\d{1,8})?$/.test(raw)) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 && n <= max ? n : null;
-};
+// URL params use the same shared schemas as the form inputs
+// (src/lib/validation). URLs are locale-independent, so parse as en-US and
+// additionally require the canonical plain-decimal spelling ("1e3", "1,000",
+// "0x10", " 5" are all rejected rather than reinterpreted).
+const URL_LOCALE = { locale: "en-US" } as const;
+const qtyParam = quantitySchema({ step: 1, min: 1, max: MAX_QTY, ...URL_LOCALE });
+const strikeParam = priceSchema({ gt: 0, max: MAX_STRIKE, maxDecimals: 8, ...URL_LOCALE });
+const expParam = integerSchema({ min: 0, max: 999, ...URL_LOCALE });
+const CANONICAL_DECIMAL = /^\d{1,12}(\.\d{1,8})?$/;
+
+function parseParam<T>(schema: z.ZodType<T, z.ZodTypeDef, string>, raw: string | null): T | null {
+  if (raw === null || !CANONICAL_DECIMAL.test(raw)) return null;
+  const r = schema.safeParse(raw);
+  return r.success ? r.data : null;
+}
 
 export function parseTerminalUrl(params: { get(name: string): string | null }): TerminalUrlState {
   const u = params.get("u");
-  const expRaw = params.get("exp");
   const tab = params.get("tab");
   const strategy = params.get("strategy");
-  const exp = expRaw && /^\d{1,3}$/.test(expRaw) ? Number(expRaw) : null;
-  const qty = posNumber(params.get("qty"), MAX_QTY);
+  const exp = parseParam(expParam, params.get("exp"));
+  const qty = parseParam(qtyParam, params.get("qty"));
   return {
     u: u && MARKETS.some((m) => m.sym === u) ? u : URL_DEFAULTS.u,
     exp: exp !== null && EXPIRIES.some((e) => e.days === exp) ? exp : URL_DEFAULTS.exp,
     tab: (VIEW_TABS as readonly string[]).includes(tab ?? "") ? (tab as ViewTab) : URL_DEFAULTS.tab,
     strategy: strategy && STRATEGY_TEMPLATES.some((t) => t.id === strategy) ? strategy : null,
-    qty: qty !== null && Number.isInteger(qty) ? qty : URL_DEFAULTS.qty,
-    strike: posNumber(params.get("strike"), MAX_STRIKE),
+    qty: qty ?? URL_DEFAULTS.qty,
+    strike: parseParam(strikeParam, params.get("strike")),
   };
 }
 

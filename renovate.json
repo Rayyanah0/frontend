@@ -1,0 +1,71 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits", ":pinDevDependencies", "helpers:pinGitHubActionDigests"],
+  "labels": ["dependencies"],
+  "timezone": "UTC",
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 5,
+  "rangeStrategy": "pin",
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "minimumReleaseAge": null,
+    "schedule": ["at any time"]
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on the first day of the month"],
+    "labels": ["dependencies", "lockfile-only-change"],
+    "automerge": false
+  },
+  "packageRules": [
+    {
+      "description": "Default: every update needs human review.",
+      "matchPackagePatterns": ["*"],
+      "automerge": false
+    },
+    {
+      "description": "Only dev-dependency patch updates auto-merge, and only with green CI (Renovate waits for required checks).",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "description": "Wallet / signing / chain SDKs are security critical: never auto-merge, always labeled.",
+      "matchPackagePatterns": ["^@stellar/", "^@creit\\.tech/", "^@lavamoat/", "freighter", "ledger", "walletconnect", "^@reown/"],
+      "automerge": false,
+      "labels": ["dependencies", "security-critical"],
+      "reviewers": ["team:security"]
+    },
+    {
+      "groupName": "Next.js + React",
+      "matchPackageNames": ["next", "eslint-config-next", "react", "react-dom", "@types/react", "@types/react-dom"]
+    },
+    {
+      "groupName": "Stellar",
+      "matchPackagePatterns": ["^@stellar/", "^@creit\\.tech/"]
+    },
+    {
+      "groupName": "Testing",
+      "matchPackagePatterns": ["^jest", "^@jest/", "^@testing-library/", "^babel-jest$", "^ts-jest$", "^msw$", "^fast-check$"]
+    },
+    {
+      "groupName": "Babel",
+      "matchPackagePatterns": ["^@babel/"]
+    },
+    {
+      "groupName": "Markdown / sanitization",
+      "matchPackageNames": ["react-markdown", "rehype-sanitize"],
+      "automerge": false,
+      "labels": ["dependencies", "security-critical"]
+    },
+    {
+      "groupName": "GitHub Actions",
+      "matchManagers": ["github-actions"]
+    }
+  ]
+}

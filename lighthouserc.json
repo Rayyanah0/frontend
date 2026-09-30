@@ -1,0 +1,26 @@
+{
+  "ci": {
+    "collect": {
+      "url": ["http://localhost:3000", "http://localhost:3000/options", "http://localhost:3000/portfolio", "http://localhost:3000/history"],
+      "numberOfRuns": 3,
+      "startServerCommand": "npm run start",
+      "settings": {
+        "chromeFlags": ["--no-sandbox", "--disable-gpu"],
+        "skipAboutBlank": true,
+        "skipAudits": ["uses-webp-images"]
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage"
+    },
+    "assert": {
+      "preset": "lighthouse:recommended",
+      "assertions": {
+        "cumulatively-layout-shift": ["error", { "maxNumericValue": 0.05 }],
+        "first-input-delay": ["error", { "maxNumericValue": 100 }],
+        "largest-contentful-paint": ["error", { "maxNumericValue": 3000 }]
+      }
+    }
+  },
+  "extends": "lighthouse:recommended"
+}

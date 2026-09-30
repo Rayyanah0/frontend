@@ -14,9 +14,10 @@ them; `src/lib/store/` now holds only `wallet.ts`. A shared WebSocket
 connection (`src/lib/context/SpotFeedContext.tsx`) feeds live spot/vol
 ticks into the options chain and portfolio pages. Wallet sign-in is a real
 end-to-end flow: connect via Freighter → request a nonce → sign it with
-`freighterApi.signBlob` → verify with the backend → store the returned
-bearer token and send it as `Authorization: Bearer <token>` on every authed
-request (`src/lib/store/wallet.ts`). That said, the signature encoding
+`freighterApi.signBlob` → exchange it at `POST /api/bff/session`, which
+verifies with the backend and keeps the bearer token in an encrypted
+httpOnly cookie. The BFF attaches it server-side to every authed request
+(see "Session & hydration" below). That said, the signature encoding
 hasn't been manually confirmed against a live Freighter extension (no
 extension available in this environment) — the flow is logically complete,
 not hardware-tested.
@@ -57,6 +58,8 @@ npm run lint     # next lint
 npm test         # vitest unit tests
 ```
 
+A render performance harness (dev-only) lives at `http://localhost:3000/__perf` — drives four scripted tick sequences through real components and exports JSON metrics. See [docs/PERFORMANCE.md](docs/PERFORMANCE.md) for the full guide, hotspot fixes, and CI setup.
+
 ## Pages
 
 | Route | What's there |
@@ -82,6 +85,11 @@ On wide viewports, **Workspace** mode (react-grid-layout) lets you drag/resize
 panels (chain, ticket, payoff, spot, smile, positions, alerts, surface,
 strategies), apply Trader / Vol / Writer presets, and save/export/import
 layouts per wallet.
+
+Pages live under `src/app/[locale]/`. English is served unprefixed and
+Spanish and Portuguese at `/es/…` and `/pt/…`. See [docs/i18n.md](docs/i18n.md).
+Security headers and CSP: [docs/security-headers.md](docs/security-headers.md).
+Clear-signing: [docs/clear-signing.md](docs/clear-signing.md).
 
 ## Keyboard shortcuts
 
@@ -151,20 +159,57 @@ src/
 See also [docs/VISUALIZATIONS.md](docs/VISUALIZATIONS.md) for the chain heat map,
 3D surface, candlestick chart, and scenario analysis features (#40–#43).
 
-### A note on hydration safety
+### Session & hydration (BFF, #118)
 
-`wallet.ts` is the one remaining persisted store, using `skipHydration: true`
-plus `StoreHydrator` (mounted once in the root layout) to pull the real
-`localStorage` token in after mount instead of at module-eval time. That
-alone isn't sufficient for anything that reads the wallet's bearer token to
-fetch backend data: passing a token before this component's own mount
-effect has fired risks fetching (and rendering) data the server-rendered
-HTML didn't have. `BackendDataProvider` (`src/lib/context/BackendDataContext.tsx`)
-gates on `useHydrated()` and only passes the real token down to
-`useBackendAccount`/`useBackendPositions`/etc. once hydrated — everything
-else in `src/app/options/page.tsx` and `src/app/history/page.tsx` that
-reads wallet-gated state follows the same pattern. Workspace layouts also
-render the Trader preset on SSR and hydrate from localStorage after mount.
+The backend bearer token is **never** stored in `localStorage` or exposed to
+JavaScript. Authed calls go through a backend-for-frontend:
+
+```
+browser ──fetch /api/bff/<backend path>──▶ Next.js route handler ──Bearer <token>──▶ zenith-backend
+          (httpOnly session cookie)        src/app/api/bff/[...path]/route.ts
+```
+
+- **Sign-in:** the wallet signs the nonce, then `POST /api/bff/session` sends
+  the signature. The BFF calls `/api/v1/auth/verify` and seals the token with
+  AES-256-GCM (key from `BFF_SESSION_SECRET`) into an `HttpOnly; Secure;
+  SameSite=Strict` cookie. The cookie is named `__Host-zenith_session` in
+  production and `zenith_session` on http://localhost. The response carries
+  only `{ authenticated, wallet_address, expires_at }`.
+- **Proxy:** only allowlisted paths and methods are forwarded
+  (`src/lib/bff/allowlist.ts`). Everything else returns 404 or 405, so this
+  is not an open proxy. Bodies are streamed in both directions. Browser
+  cookies never reach the backend, and backend `Set-Cookie` headers never
+  reach the browser.
+- **CSRF:** mutating routes need a same-origin `Origin` header (or
+  `Sec-Fetch-Site: same-origin`) and an `x-zenith-csrf` header matching the
+  JS-readable `zenith_csrf` cookie. `GET /api/bff/session` mints that cookie.
+- **Logout:** `DELETE /api/bff/session` clears the cookie, which is shared
+  by all tabs. `src/lib/tabs/session.ts` broadcasts the change so other tabs
+  update immediately.
+- **WebSockets:** the spot and chain feeds are public, so they connect
+  directly and need no ticket. An authed feed would need a short-lived
+  ticket route in the BFF.
+- **Latency:** every proxied response carries
+  `Server-Timing: upstream;dur=…, bff;dur=…`. Deploy the frontend in the same
+  region as the backend. Self-hosting and Docker need no extra service, since
+  the BFF is part of `next start`.
+
+Server-only env vars: `BFF_SESSION_SECRET` (required in production,
+≥32 chars, e.g. `openssl rand -base64 48`), `BFF_UPSTREAM_URL` (backend
+origin as the server sees it, defaults to `NEXT_PUBLIC_API_URL`),
+`BFF_ALLOWED_ORIGINS` (extra origins for mutating calls, comma-separated),
+and `BFF_INSECURE_COOKIES=1` (plain-HTTP self-hosting only).
+
+**Hydration.** `wallet.ts` is still persisted with `skipHydration: true`, and
+`StoreHydrator` rehydrates it after mount. It now persists only the public
+`address`. Store version 2's `migrate`, plus `purgeLegacyWalletToken()`, strip
+any token left by older builds. Whether a session exists is asked of the BFF
+(`checkConnection()` → `GET /api/bff/session`) after mount, so the server
+HTML and the first client render still match. The store's `session` field is
+a non-secret marker (`"bff-session"`), not a credential. Components that
+gate fetching on it still wait for `useHydrated()` before fetching. Workspace
+layouts also render the Trader preset on SSR and hydrate from localStorage
+after mount.
 
 ## Close API contract (frontend)
 
@@ -183,7 +228,7 @@ npm test          # node:test unit suite (attribution, analytics, expiry, alertR
 ## Known gaps
 
 - Unit tests cover heat scales, candles, vol-surface mesh, and scenario grid
-  (`npm test`). No Playwright e2e suite yet.
+  (`npm test`). General Playwright e2e suite not yet in CI (keyboard/drag flows).
 - No RTL / component test suite yet (pure lib modules are covered).
 - PWA: hand-written `public/sw.js` (no Serwist/Workbox dependency), production-only registration, SVG icons only (no PNG set), no Playwright offline tests and no Lighthouse run yet. Only last-known public spot prices are snapshotted (IndexedDB, wiped on disconnect); positions/account are not cached.
 - Playwright e2e keyboard/drag flows are not in CI yet; unit coverage is via vitest.

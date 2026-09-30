@@ -106,6 +106,9 @@ export interface PipelineEvent {
 // Pipeline call params
 // ---------------------------------------------------------------------------
 
+import type { TxIntent } from "./intent";
+import type { ClearSignOptions, ReviewedTransaction } from "./tx";
+
 export interface ContractCallParams {
   /** Stellar contract address (C…) */
   contract: string;
@@ -121,6 +124,20 @@ export interface ContractCallParams {
   signal?: AbortSignal;
   /** Metadata passed through to tracker entries */
   meta?: ContractCallMeta;
+  /**
+   * Clear-signing (#119): the structured intent from the UI. When set, the
+   * assembled XDR is decoded and compared against it before the wallet is
+   * prompted; any mismatch blocks signing.
+   */
+  intent?: TxIntent;
+  /** Contract ids / allow-lists used by the decoder and comparator. */
+  clearSign?: ClearSignOptions;
+  /**
+   * Shows the decoded transaction to the user (ConfirmDialog) and resolves
+   * true to proceed to the wallet, false to cancel. Only called when the
+   * intent verified.
+   */
+  onReview?: (review: ReviewedTransaction) => Promise<boolean>;
 }
 
 export interface ContractCallMeta {

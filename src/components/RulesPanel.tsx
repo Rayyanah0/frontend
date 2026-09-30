@@ -178,13 +178,19 @@ export function RulesPanel({ positions, walletAddress, onExecuteRule }: Props) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", borderBottom: "1px solid var(--border-default)" }}>
         <div style={{ display: "flex", gap: 2 }}>
           {(["rules", "queue"] as const).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              padding: "4px 12px", border: "none", cursor: "pointer", fontSize: 12, textTransform: "capitalize",
-              background: activeTab === tab ? "var(--bg-elevated)" : "transparent",
-              color: activeTab === tab ? "var(--text-hi)" : "var(--text-lo)",
-              borderBottom: activeTab === tab ? "2px solid var(--brand)" : "2px solid transparent",
-              marginBottom: -1, fontWeight: activeTab === tab ? 600 : 400,
-            }}>
+            <button
+              key={tab}
+              role="tab"
+              aria-selected={activeTab === tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                padding: "4px 12px", border: "none", cursor: "pointer", fontSize: 12, textTransform: "capitalize",
+                background: activeTab === tab ? "var(--bg-elevated)" : "transparent",
+                color: activeTab === tab ? "var(--text-hi)" : "var(--text-lo)",
+                borderBottom: activeTab === tab ? "2px solid var(--brand)" : "2px solid transparent",
+                marginBottom: -1, fontWeight: activeTab === tab ? 600 : 400,
+              }}
+            >
               {tab === "queue" ? `Action Queue${alerts.length > 0 ? ` (${alerts.length})` : ""}` : "Management Rules"}
             </button>
           ))}
@@ -357,15 +363,15 @@ export function RulesPanel({ positions, walletAddress, onExecuteRule }: Props) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 {/* Name */}
                 <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={{ fontSize: 10, color: "var(--text-lo)", display: "block", marginBottom: 4 }}>Rule Name</label>
-                  <input value={editorName} onChange={e => setEditorName(e.target.value)} placeholder="My rule"
+                  <label htmlFor="rule-name" style={{ fontSize: 10, color: "var(--text-lo)", display: "block", marginBottom: 4 }}>Rule Name</label>
+                  <input id="rule-name" value={editorName} onChange={e => setEditorName(e.target.value)} placeholder="My rule"
                     style={{ width: "100%", padding: "6px 8px", background: "var(--bg-overlay)", border: "1px solid var(--border-default)", color: "var(--text-hi)", fontSize: 12 }} />
                 </div>
 
                 {/* Condition */}
                 <div>
-                  <label style={{ fontSize: 10, color: "var(--text-lo)", display: "block", marginBottom: 4 }}>Condition</label>
-                  <select value={editorCondition} onChange={e => setEditorCondition(e.target.value as RuleConditionType)}
+                  <label htmlFor="rule-condition" style={{ fontSize: 10, color: "var(--text-lo)", display: "block", marginBottom: 4 }}>Condition</label>
+                  <select id="rule-condition" value={editorCondition} onChange={e => setEditorCondition(e.target.value as RuleConditionType)}
                     style={{ width: "100%", padding: "6px 8px", background: "var(--bg-overlay)", border: "1px solid var(--border-default)", color: "var(--text-hi)", fontSize: 11 }}>
                     {(Object.entries(CONDITION_LABELS) as [RuleConditionType, string][]).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
@@ -375,17 +381,17 @@ export function RulesPanel({ positions, walletAddress, onExecuteRule }: Props) {
 
                 {/* Threshold */}
                 <div>
-                  <label style={{ fontSize: 10, color: "var(--text-lo)", display: "block", marginBottom: 4 }}>
+                  <label htmlFor="rule-threshold" style={{ fontSize: 10, color: "var(--text-lo)", display: "block", marginBottom: 4 }}>
                     {CONDITION_THRESHOLD_LABELS[editorCondition]}
                   </label>
-                  <input type="number" value={editorThreshold} onChange={e => setEditorThreshold(e.target.value)}
+                  <input id="rule-threshold" type="number" value={editorThreshold} onChange={e => setEditorThreshold(e.target.value)}
                     style={{ width: "100%", padding: "6px 8px", background: "var(--bg-overlay)", border: "1px solid var(--border-default)", color: "var(--text-hi)", fontSize: 12, fontFamily: "var(--font-mono)" }} />
                 </div>
 
                 {/* Action */}
                 <div>
-                  <label style={{ fontSize: 10, color: "var(--text-lo)", display: "block", marginBottom: 4 }}>Action</label>
-                  <select value={editorAction} onChange={e => setEditorAction(e.target.value as RuleAction)}
+                  <label htmlFor="rule-action" style={{ fontSize: 10, color: "var(--text-lo)", display: "block", marginBottom: 4 }}>Action</label>
+                  <select id="rule-action" value={editorAction} onChange={e => setEditorAction(e.target.value as RuleAction)}
                     style={{ width: "100%", padding: "6px 8px", background: "var(--bg-overlay)", border: "1px solid var(--border-default)", color: "var(--text-hi)", fontSize: 11 }}>
                     {(Object.entries(ACTION_LABELS) as [RuleAction, string][]).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
@@ -395,8 +401,8 @@ export function RulesPanel({ positions, walletAddress, onExecuteRule }: Props) {
 
                 {/* Target */}
                 <div>
-                  <label style={{ fontSize: 10, color: "var(--text-lo)", display: "block", marginBottom: 4 }}>Apply to</label>
-                  <select value={editorTarget} onChange={e => setEditorTarget(e.target.value)}
+                  <label htmlFor="rule-target" style={{ fontSize: 10, color: "var(--text-lo)", display: "block", marginBottom: 4 }}>Apply to</label>
+                  <select id="rule-target" value={editorTarget} onChange={e => setEditorTarget(e.target.value)}
                     style={{ width: "100%", padding: "6px 8px", background: "var(--bg-overlay)", border: "1px solid var(--border-default)", color: "var(--text-hi)", fontSize: 11 }}>
                     <option value="all">All positions</option>
                     {positions.map(p => (

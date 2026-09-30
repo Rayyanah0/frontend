@@ -142,7 +142,13 @@ export function formatQuantity(sym: string, n: number, locale = DEFAULT_LOCALE):
   return fixed(n, dp, dp, locale);
 }
 
-/** Hook seam for a future locale context; today returns bound default-locale formatters. */
+/**
+ * Formatters bound to a BCP 47 locale. Separators and currency symbols
+ * follow the locale. Decimal places always come from the instrument
+ * registry above, so financial precision is locale-independent. In
+ * components, prefer `useLocaleFormatters()` (src/lib/i18n/useLocaleFormatters.ts),
+ * which binds the active next-intl locale.
+ */
 export function useFormatters(locale: string = DEFAULT_LOCALE) {
   return {
     price: (s: string, n: number) => formatPrice(s, n, locale),

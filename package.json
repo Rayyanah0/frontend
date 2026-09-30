@@ -2,22 +2,38 @@
   "name": "zenith-frontend",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "setup": "allow-scripts",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "sri:check": "node scripts/check-external-scripts.mjs",
+    "test:xss": "jest src/components/__tests__/xss.corpus.test.tsx",
+    "test:e2e": "playwright test",
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "security:audit": "node scripts/security/audit-gate.mjs",
+    "security:licenses": "node scripts/security/check-licenses.mjs",
+    "security:lockfile": "lockfile-lint --path package-lock.json --type npm --allowed-hosts npm --validate-https --validate-integrity --validate-package-names --empty-hostname false"
   },
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "2.7.0",
     "@stellar/freighter-api": "^2.0.0",
     "@stellar/stellar-sdk": "12.3.0",
+    "@tanstack/react-query": "5.59.0",
     "next": "14.2.3",
+    "next-intl": "^3.26.3",
     "react": "^18",
     "react-dom": "^18",
+    "react-markdown": "9.0.1",
+    "rehype-sanitize": "6.0.0",
+    "zod": "3.25.76",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
@@ -25,6 +41,9 @@
     "@babel/preset-env": "^8.0.6",
     "@babel/preset-react": "^8.0.1",
     "@babel/preset-typescript": "^8.0.1",
+    "@lavamoat/allow-scripts": "3.2.1",
+    "@lavamoat/preinstall-always-fail": "2.1.0",
+    "@playwright/test": "^1.48.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/jest": "^30.0.0",
@@ -35,11 +54,27 @@
     "babel-jest": "^30.5.2",
     "eslint": "^8",
     "eslint-config-next": "14.2.3",
+    "fast-check": "3.23.1",
     "jest": "^30.5.2",
     "jest-environment-jsdom": "^30.5.2",
+    "lockfile-lint": "4.14.0",
+    "msw": "2.6.4",
+    "lighthouse": "^11.4.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.3",
     "ts-jest": "^29.4.14",
     "typescript": "^5"
+  },
+  "lavamoat": {
+    "allowScripts": {
+      "@lavamoat/preinstall-always-fail": false,
+      "@creit.tech/stellar-wallets-kit>@reown/appkit": false,
+      "@creit.tech/stellar-wallets-kit>@hot-wallet/sdk>@near-js/crypto>secp256k1": false,
+      "babel-jest>@jest/transform>jest-haste-map>@parcel/watcher": false,
+      "eslint-config-next>eslint-import-resolver-typescript>unrs-resolver": false,
+      "jest-environment-jsdom>jsdom>ws>bufferutil": false,
+      "jest-environment-jsdom>jsdom>ws>utf-8-validate": false,
+      "tailwindcss>chokidar>fsevents": false
+    }
   }
 }

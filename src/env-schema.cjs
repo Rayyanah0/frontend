@@ -51,6 +51,22 @@ const clientEnvSchema = z.object({
   NEXT_PUBLIC_STELLAR_MAINNET_CONTRACT_ID: contractId,
   NEXT_PUBLIC_APP_VERSION: z.string().optional(),
   NEXT_PUBLIC_BUILD_SHA: z.string().optional(),
+
+  // Governance (#89): governable contract IDs, per network. All optional so a
+  // deployment without governance still boots — the wizard degrades to a
+  // "contracts not configured" state rather than failing at import time.
+  NEXT_PUBLIC_CONTRACT_GOVERNOR_TESTNET: contractId,
+  NEXT_PUBLIC_CONTRACT_GOVERNOR_MAINNET: contractId,
+  NEXT_PUBLIC_CONTRACT_MARKET_TESTNET: contractId,
+  NEXT_PUBLIC_CONTRACT_MARKET_MAINNET: contractId,
+  NEXT_PUBLIC_CONTRACT_VAULT_TESTNET: contractId,
+  NEXT_PUBLIC_CONTRACT_VAULT_MAINNET: contractId,
+  NEXT_PUBLIC_CONTRACT_ORACLE_TESTNET: contractId,
+  NEXT_PUBLIC_CONTRACT_ORACLE_MAINNET: contractId,
+  NEXT_PUBLIC_CONTRACT_TIMELOCK_TESTNET: contractId,
+  NEXT_PUBLIC_CONTRACT_TIMELOCK_MAINNET: contractId,
+  NEXT_PUBLIC_CONTRACT_DEPLOYER_TESTNET: contractId,
+  NEXT_PUBLIC_CONTRACT_DEPLOYER_MAINNET: contractId,
 });
 
 const envSchema = serverEnvSchema

@@ -1,11 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type RefObject } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useSpotFeed, type SpotFeedStatus } from "../hooks/useSpotFeed";
 import type { SpotResponse } from "../api/types";
 import { broadcast, onTabMessage } from "../tabs/channel";
 import { useIsLeaderTab } from "../tabs/leader";
 import { startSessionSync } from "../tabs/session";
+import { useIntegrityGuard } from "../integrity/useIntegrityGuard";
 
 interface SpotFeedData {
   data: SpotResponse | null;
@@ -22,6 +23,11 @@ const SpotFeedContext = createContext<SpotFeedData | null>(null);
  * without this each would open its own independent socket to the same
  * feed for no benefit (same broadcast, same reconnect logic, just
  * duplicated).
+ *
+ * Integrity guard: every incoming tick from the leader socket is passed
+ * through the validateTick pipeline before being stored and relayed to
+ * follower tabs.  Rejected ticks are silently dropped (they are logged via
+ * the sampled monitoring emission inside useIntegrityGuard).
  */
 export function SpotFeedProvider({ children }: { children: React.ReactNode }) {
   // Lazy: the socket opens on first consumer demand (see useSpotFeedContext),
@@ -31,8 +37,43 @@ export function SpotFeedProvider({ children }: { children: React.ReactNode }) {
   const leader = useIsLeaderTab();
   const [remoteDemand, setRemoteDemand] = useState(false);
   const [relayed, setRelayed] = useState<SpotResponse | null>(null);
-  // Only the leader tab holds the socket; it also connects when a follower asks.
-  const feed = useSpotFeed(leader === true && (demanded || remoteDemand));
+
+  // ── Integrity guard (leader tab only) ──────────────────────────────────────
+  // The guard lives only in the leader because followers receive already-
+  // validated snapshots via the broadcast channel.  Non-leaders skip
+  // validation to avoid double-counting rejections in the store.
+  const { processTick, handleReconnect } = useIntegrityGuard();
+
+  // Raw feed from useSpotFeed; we'll filter it before exposing it.
+  const rawFeed = useSpotFeed(leader === true && (demanded || remoteDemand));
+
+  // Validated data: only accept ticks that pass the integrity check.
+  const [validatedData, setValidatedData] = useState<SpotResponse | null>(null);
+  const prevStatusRef = useRef<SpotFeedStatus>("closed");
+
+  useEffect(() => {
+    if (leader !== true) return;
+
+    // Detect a reconnect: if the status transitions from a non-open state
+    // back to open, reset baselines so the first post-reconnect tick seeds
+    // a fresh median.
+    if (
+      prevStatusRef.current !== "open" &&
+      rawFeed.status === "open"
+    ) {
+      handleReconnect();
+    }
+    prevStatusRef.current = rawFeed.status;
+
+    if (!rawFeed.data) return;
+
+    const accepted = processTick(rawFeed.data);
+    if (accepted !== null) {
+      setValidatedData(accepted);
+    }
+    // If processTick returns null the tick is dropped silently — the previous
+    // validated snapshot is kept so the UI doesn't blank out.
+  }, [leader, rawFeed.data, rawFeed.status, processTick, handleReconnect]);
 
   useEffect(() => startSessionSync(), []);
 
@@ -54,18 +95,28 @@ export function SpotFeedProvider({ children }: { children: React.ReactNode }) {
 
   // Leader relays at most one message per animation frame.
   const feedRef = useRef<SpotResponse | null>(null);
-  feedRef.current = feed.data;
+  feedRef.current = validatedData;
   useEffect(() => {
-    if (leader !== true || !feed.data) return;
-    const data = feed.data;
+    if (leader !== true || !validatedData) return;
+    const data = validatedData;
     const id = requestAnimationFrame(() => broadcast({ type: "spot", data }));
     return () => cancelAnimationFrame(id);
-  }, [leader, feed.data]);
+  }, [leader, validatedData]);
 
-  const value: SpotFeedData =
-    leader === false
-      ? { data: relayed, status: relayed ? "open" : "connecting", request }
-      : { ...feed, request };
+  // Memoize the context value to prevent all consumers from re-rendering
+  // when the provider re-renders for unrelated reasons.  Each field is a
+  // stable reference (request is useCallback'd; data/status only change
+  // when new WS frames arrive), so the memo hit rate is high.
+  const followerData = leader === false ? relayed : null;
+  const followerStatus: SpotFeedStatus = relayed ? "open" : "connecting";
+  const value = useMemo<SpotFeedData>(
+    () =>
+      leader === false
+        ? { data: followerData, status: followerStatus, request }
+        : { data: validatedData, status: rawFeed.status, request },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [leader, followerData, followerStatus, validatedData, rawFeed.status, request],
+  );
   return <SpotFeedContext.Provider value={value}>{children}</SpotFeedContext.Provider>;
 }
 

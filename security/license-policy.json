@@ -1,0 +1,52 @@
+{
+  "$comment": "License policy for scripts/security/check-licenses.mjs. 'allowed' holds SPDX ids that are compatible with shipping a closed/permissive frontend bundle. Strong copyleft (GPL/AGPL/SSPL), non-commercial and unknown licenses fail. 'exceptions' are per-package, reviewed, and expire; an expired exception fails CI. Changes need a CODEOWNERS security review.",
+  "allowed": [
+    "MIT",
+    "MIT-0",
+    "ISC",
+    "0BSD",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "Apache-2.0",
+    "BlueOak-1.0.0",
+    "Unlicense",
+    "CC0-1.0",
+    "CC-BY-3.0",
+    "CC-BY-4.0",
+    "Python-2.0",
+    "MPL-2.0",
+    "Zlib",
+    "WTFPL"
+  ],
+  "exceptions": [
+    {
+      "package": "@lobstrco/signer-extension-api",
+      "license": "GPL-3.0",
+      "reason": "Transitive via @creit.tech/stellar-wallets-kit (LOBSTR wallet adapter). GPL-3.0 is incompatible with our distribution: legal review required, or drop the LOBSTR module from the wallets kit.",
+      "expires": "2026-12-31",
+      "approvedBy": "pending-security-review"
+    },
+    {
+      "package": "rpc-websockets",
+      "license": "LGPL-3.0-only",
+      "reason": "Transitive via @stellar/stellar-sdk; unmodified library, shipped as a separate replaceable chunk. Confirm with legal.",
+      "expires": "2026-12-31",
+      "approvedBy": "pending-security-review"
+    },
+    { "package": "@reown/appkit", "license": "SEE LICENSE IN LICENSE.md", "reason": "Reown Community License (custom). Transitive via stellar-wallets-kit WalletConnect module; license text reviewed per release.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@reown/appkit-common", "license": "SEE LICENSE IN LICENSE.md", "reason": "Reown Community License — see @reown/appkit.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@reown/appkit-controllers", "license": "SEE LICENSE IN LICENSE.md", "reason": "Reown Community License — see @reown/appkit.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@reown/appkit-pay", "license": "SEE LICENSE IN LICENSE.md", "reason": "Reown Community License — see @reown/appkit.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@reown/appkit-polyfills", "license": "SEE LICENSE IN LICENSE.md", "reason": "Reown Community License — see @reown/appkit.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@reown/appkit-scaffold-ui", "license": "SEE LICENSE IN LICENSE.md", "reason": "Reown Community License — see @reown/appkit.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@reown/appkit-ui", "license": "SEE LICENSE IN LICENSE.md", "reason": "Reown Community License — see @reown/appkit.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@reown/appkit-utils", "license": "SEE LICENSE IN LICENSE.md", "reason": "Reown Community License — see @reown/appkit.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@reown/appkit-wallet", "license": "SEE LICENSE IN LICENSE.md", "reason": "Reown Community License — see @reown/appkit.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@walletconnect/core", "license": "SEE LICENSE IN LICENSE.md", "reason": "WalletConnect Community License (custom). Transitive via stellar-wallets-kit.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@walletconnect/sign-client", "license": "SEE LICENSE IN LICENSE.md", "reason": "WalletConnect Community License — see @walletconnect/core.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@walletconnect/types", "license": "SEE LICENSE IN LICENSE.md", "reason": "WalletConnect Community License — see @walletconnect/core.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@walletconnect/universal-provider", "license": "SEE LICENSE IN LICENSE.md", "reason": "WalletConnect Community License — see @walletconnect/core.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@walletconnect/utils", "license": "SEE LICENSE IN LICENSE.md", "reason": "WalletConnect Community License — see @walletconnect/core.", "expires": "2026-12-31", "approvedBy": "pending-security-review" },
+    { "package": "@trezor/crypto-utils", "license": "SEE LICENSE IN LICENSE.md", "reason": "Trezor custom license, transitive via stellar-wallets-kit Trezor module.", "expires": "2026-12-31", "approvedBy": "pending-security-review" }
+  ]
+}

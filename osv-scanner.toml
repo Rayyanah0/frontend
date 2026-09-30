@@ -1,0 +1,7 @@
+# OSV-Scanner configuration (see SECURITY.md). Keep in sync with
+# security/audit-exceptions.json — every ignore needs a reason and an expiry.
+#
+# [[IgnoredVulns]]
+# id = "GHSA-xxxx-xxxx-xxxx"
+# ignoreUntil = 2026-12-31
+# reason = "Not reachable: only used by the dev server"

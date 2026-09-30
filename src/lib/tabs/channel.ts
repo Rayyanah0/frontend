@@ -1,19 +1,20 @@
 import type { SpotResponse } from "../api/types";
+import type { SessionMarker } from "../bff/constants";
 
 /**
  * Cross-tab protocol. Versioned so a stale tab running older code can
  * ignore messages it doesn't understand instead of misinterpreting them.
  *
- * Security note: BroadcastChannel is strictly same-origin, so the bearer
- * token in `session` messages is only ever visible to other Zenith tabs
- * of this origin — the same context that can already read it from
- * localStorage (zustand persist). It never crosses origins.
+ * Security note: `session` messages carry no credential — only the public
+ * address and the non-secret BFF session marker. The bearer token lives in
+ * an httpOnly cookie (#118). Protocol bumped to 2 so v1 tabs (which sent
+ * tokens) are ignored.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 const CHANNEL_NAME = "zenith-tabs";
 
 export type TabMessage =
-  | { type: "session"; address: string | null; token: string | null; network: string | null }
+  | { type: "session"; address: string | null; session: SessionMarker | null; network: string | null }
   | { type: "spot"; data: SpotResponse }
   | { type: "spot-demand" }
   | { type: "invalidate"; keys: InvalidationKey[] };

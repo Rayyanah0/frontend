@@ -1,0 +1,32 @@
+{
+  "$schema": "./perf-thresholds.schema.json",
+  "version": 1,
+  "description": "Regression thresholds for the Zenith frontend performance harness. A CI run fails if any metric in any scenario regresses by more than `defaultThreshold`. Per-scenario and per-metric overrides are supported.",
+  "defaultThreshold": 0.2,
+  "scenarios": {
+    "spot-tick": {
+      "commitCount":    { "threshold": 0.05,  "note": "Commit count on spot ticks should be very stable" },
+      "totalRenderMs":  { "threshold": 0.20 },
+      "p95RenderMs":    { "threshold": 0.20 },
+      "totalLongTaskMs":{ "threshold": null,  "note": "Any long task on a spot tick is a regression regardless of baseline" }
+    },
+    "chain-update": {
+      "commitCount":    { "threshold": 0.10 },
+      "totalRenderMs":  { "threshold": 0.20 },
+      "p95RenderMs":    { "threshold": 0.20 },
+      "totalLongTaskMs":{ "threshold": null }
+    },
+    "position-mtm": {
+      "commitCount":    { "threshold": 0.10 },
+      "totalRenderMs":  { "threshold": 0.20 },
+      "p95RenderMs":    { "threshold": 0.25,  "note": "Slightly more lenient — MTM rows vary more between runs" },
+      "totalLongTaskMs":{ "threshold": null }
+    },
+    "tab-switch": {
+      "commitCount":    { "threshold": 0.10 },
+      "totalRenderMs":  { "threshold": 0.20 },
+      "p95RenderMs":    { "threshold": 0.30,  "note": "Tab switch mounts/unmounts heavy panels; more variance expected" },
+      "totalLongTaskMs":{ "threshold": null }
+    }
+  }
+}

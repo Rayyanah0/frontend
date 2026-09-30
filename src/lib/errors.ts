@@ -41,6 +41,14 @@ function build(kind: ErrorKind, detail?: string): ClassifiedError {
 export function classifyError(err: unknown): ClassifiedError {
   if (err instanceof ApiError) {
     const msg = err.message;
+    // Client-side resilience outcomes (see src/lib/api/resilience).
+    if (err.reason === "timeout") return build("network", msg);
+    if (err.reason === "circuit_open") return build("server", msg);
+    if (err.status === 429) {
+      const secs = err.retryAfterMs ? Math.ceil(err.retryAfterMs / 1000) : null;
+      const base = build("rate_limited", msg);
+      return secs ? { ...base, message: `Too many requests. Try again in ${secs}s.` } : base;
+    }
     if (/insufficient/i.test(msg)) return build("insufficient_funds", msg);
     if (err.status === 401 || err.status === 403) return build("auth", msg);
     if (err.status === 429) return build("rate_limited", msg);

@@ -18,8 +18,7 @@
 
 import { submitTransactionXdr } from "./stellar";
 import freighterApi from "@stellar/freighter-api";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8081";
+import { bffFetch } from "./client";
 
 export const VAULT_CONTRACT_ID =
   process.env.NEXT_PUBLIC_VAULT_CONTRACT_ID ?? null;
@@ -55,7 +54,7 @@ export interface VaultEvent {
 export async function depositToVault(
   address: string,
   amount: number,
-  token: string
+  _session: string
 ): Promise<VaultOperationResult> {
   if (!VAULT_CONTRACT_ID) {
     throw new Error(
@@ -63,12 +62,10 @@ export async function depositToVault(
     );
   }
 
-  const buildRes = await fetch(`${API_BASE}/api/v1/onchain/build-deposit`, {
+  // Authenticated by the BFF session cookie (#118).
+  const buildRes = await bffFetch("/api/v1/onchain/build-deposit", {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`,
-    },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify({
       wallet_address: address,
       amount: amount.toString(),
@@ -100,7 +97,7 @@ export async function depositToVault(
 export async function withdrawFromVault(
   address: string,
   amount: number,
-  token: string,
+  _session: string,
   freeCollateral: number
 ): Promise<VaultOperationResult> {
   if (!VAULT_CONTRACT_ID) {
@@ -116,12 +113,10 @@ export async function withdrawFromVault(
     );
   }
 
-  const buildRes = await fetch(`${API_BASE}/api/v1/onchain/build-withdraw`, {
+  // Authenticated by the BFF session cookie (#118).
+  const buildRes = await bffFetch("/api/v1/onchain/build-withdraw", {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${token}`,
-    },
+    headers: { "content-type": "application/json" },
     body: JSON.stringify({
       wallet_address: address,
       amount: amount.toString(),

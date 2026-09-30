@@ -1,0 +1,115 @@
+# Proposal Wizard (Issue #89)
+
+Route: **`/governance/new`**
+
+A four-step flow for drafting, simulating and submitting a governance proposal.
+
+```
+Details  →  Actions  →  Simulate  →  Review & submit
+```
+
+## Layout
+
+| Path | Purpose |
+| --- | --- |
+| `src/lib/governance/actions.ts` | Catalog of governable contracts/functions, typed argument encoding, form generation, human-readable summaries, danger rules |
+| `src/lib/governance/strkey.ts` | Dependency-free Stellar `G…` / `C…` checksum validation |
+| `src/lib/governance/simulation.ts` | Reads current on-chain values and renders `current → proposed` diffs |
+| `src/lib/governance/draft.ts` | Versioned local draft persistence and metadata validation |
+| `src/lib/governance/submit.ts` | Threshold gate, fee estimate, proposal payload, Soroban submission |
+| `src/lib/governance/markdown.ts` | Safe Markdown subset for the body preview (AST, no `dangerouslySetInnerHTML`) |
+| `src/app/governance/new/page.tsx` | Route adapter |
+| `src/app/governance/new/_components/` | `ProposalWizard` plus one component per step |
+
+`ProposalWizard` takes every external dependency as a prop — `signer`, `proposer`,
+`contractIds`, `governorContractId`, `thresholdState`, `reader` — so the flow renders
+and is tested without a wallet, a network, or the Next.js router.
+
+## Step 1 — Details
+
+Title (8–120), summary (≤280), Markdown description (≥40) and an optional discussion
+link restricted to `http`/`https`. The description is rendered live beside the form.
+
+## Step 2 — Actions
+
+Contract and function come from dropdowns populated by `GOVERNABLE_CONTRACTS`. Argument
+inputs are **generated from the function's declared params** — adding a governable
+function to the catalog needs no changes to the wizard.
+
+Catalogued contracts: `market`, `vault`, `oracle`, `governor`, `timelock`, `deployer`.
+Supported param types: `u32`, `u64`, `u128`, `i128`, `bool`, `address`, `contract`,
+`symbol`, `string`, `vec<address>`.
+
+Each action renders a plain-English summary, e.g.
+
+> Put collateral ratio → Collateral ratio 110%
+
+Flagged as **high impact** (requires extra confirmation before submitting):
+`market.set_paused`, `market.set_collateral_address`, `vault.set_paused`,
+`oracle.set_feeds`, `timelock.set_admin`, `deployer.upgrade_contract`.
+
+## Step 3 — Simulate
+
+For every parameter with a `readMethod`, the current on-chain value is read through the
+injected `ValueReader` and shown beside the proposed value with a delta and direction.
+A read that fails is reported as a partial preview rather than blocking or hiding it.
+
+This step is viewable even when actions are invalid, so errors are visible — but the flow
+cannot advance to Review until the simulation is clean.
+
+## Step 4 — Review and submit
+
+Shows the rendered proposal, the proposer's threshold progress, and a fee estimate. High
+impact proposals replace the submit button and require ticking an explicit acknowledgement.
+
+Submission builds the `submit_proposal` argument tuple and forwards it through the shared
+pipeline (`executeContractCall` + `createPipelineEventHandler`), so progress appears in
+the normal transaction tracker and failed transactions remain retryable.
+
+## Drafts
+
+Autosaved (debounced 300 ms) to `localStorage` under `zenith_governance_proposal_draft`,
+version-stamped. Reads are defensive: malformed or stale payloads fall back to an empty
+draft instead of throwing. The draft is cleared only after a confirmed submission.
+
+## Configuration
+
+Contract IDs are read through `src/env.ts` (per the repo's `no-restricted-properties`
+lint rule), with one optional variable per contract per network:
+
+```
+NEXT_PUBLIC_CONTRACT_GOVERNOR_TESTNET
+NEXT_PUBLIC_CONTRACT_MARKET_TESTNET
+NEXT_PUBLIC_CONTRACT_VAULT_TESTNET
+NEXT_PUBLIC_CONTRACT_ORACLE_TESTNET
+NEXT_PUBLIC_CONTRACT_TIMELOCK_TESTNET
+NEXT_PUBLIC_CONTRACT_DEPLOYER_TESTNET
+```
+
+…and the matching `*_MAINNET` variables. All are optional; unset entries surface as a
+"Contracts not configured" notice, and submission is refused rather than sent to a zero
+address.
+
+## Wiring the wallet
+
+`src/lib/store/wallet.ts` is a **zero-byte file on `main`**, so this feature does not
+import it. The route reads the signer from `ProposalSignerProvider`
+(`_components/wallet.tsx`), which defaults to "not connected":
+
+```tsx
+<ProposalSignerProvider value={{ signer, address }}>
+  {children}
+</ProposalSignerProvider>
+```
+
+Wrap the app (or this route) in that provider once the wallet store is restored.
+
+## Tests
+
+```
+npx jest src/lib/governance src/app/governance
+```
+
+219 tests: StrKey checksums, argument encoding, form generation, simulation diffs,
+draft persistence, threshold/fee/submission, the Markdown parser, and RTL coverage of the
+full four-step flow including the dangerous-action gate.

@@ -1,0 +1,4 @@
+{
+  "$comment": "Reviewed exceptions for scripts/security/audit-gate.mjs. Each entry needs: id (GHSA id), package (or \"*\"), reason (why it is not exploitable here / what mitigates it), expires (ISO date, max 90 days out), approvedBy (GitHub handle). Expired entries stop waiving and fail CI.",
+  "exceptions": []
+}

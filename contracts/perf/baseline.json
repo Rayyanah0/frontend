@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "recordedAt": "2026-09-30T10:11:21.064Z",
+  "revision": "baseline-post-hotfix",
+  "description": "Initial baseline captured after the three hotspot fixes: BackendDataContext useMemo, SpotFeedContext useMemo, ChainTable row memoization. Numbers are conservative upper-bounds; tighten them after running on your dev machine with `npm run perf:baseline`.",
+  "results": [
+    {
+      "scenario": "spot-tick",
+      "commitCount": 60,
+      "totalRenderMs": 90,
+      "p50RenderMs": 1.4,
+      "p95RenderMs": 3.5,
+      "longTasks": [],
+      "totalLongTaskMs": 0,
+      "startedAt": 0,
+      "finishedAt": 1050
+    },
+    {
+      "scenario": "chain-update",
+      "commitCount": 20,
+      "totalRenderMs": 80,
+      "p50RenderMs": 3.5,
+      "p95RenderMs": 8.0,
+      "longTasks": [],
+      "totalLongTaskMs": 0,
+      "startedAt": 0,
+      "finishedAt": 380
+    },
+    {
+      "scenario": "position-mtm",
+      "commitCount": 30,
+      "totalRenderMs": 45,
+      "p50RenderMs": 1.4,
+      "p95RenderMs": 3.0,
+      "longTasks": [],
+      "totalLongTaskMs": 0,
+      "startedAt": 0,
+      "finishedAt": 530
+    },
+    {
+      "scenario": "tab-switch",
+      "commitCount": 8,
+      "totalRenderMs": 16,
+      "p50RenderMs": 1.8,
+      "p95RenderMs": 4.0,
+      "longTasks": [],
+      "totalLongTaskMs": 0,
+      "startedAt": 0,
+      "finishedAt": 150
+    }
+  ]
+}

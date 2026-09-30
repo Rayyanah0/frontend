@@ -17,7 +17,7 @@
  *   "info"      — purely informational (e.g. a dust difference in collateral)
  */
 
-import { apiGet } from "./client";
+import { apiGet, bffFetch } from "./client";
 import type { Position } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -191,9 +191,7 @@ export async function sendDiscrepancyReport(
   if (discrepancies.length === 0) return;
 
   const addressHash = await sha256Hex(address).catch(() => "unknown");
-  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8081";
-
-  await fetch(`${apiBase}/api/v1/onchain/reconciliation-report`, {
+  await bffFetch("/api/v1/onchain/reconciliation-report", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({

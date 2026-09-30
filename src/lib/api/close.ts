@@ -1,4 +1,4 @@
-import { apiGet, apiPost, ApiError } from "./client";
+import { apiGet, apiPost, ApiError, type RequestOptions } from "./client";
 import type { Position } from "./types";
 
 export interface ClosePositionBody {
@@ -56,16 +56,17 @@ export function resetCloseFeatureCache() {
 export function closePositionPartial(
   id: string,
   body: ClosePositionBody,
-  token: string
+  token: string,
+  opts?: RequestOptions
 ): Promise<Position> {
-  return apiPost(`/api/v1/positions/${id}/close`, body.contracts != null ? { contracts: body.contracts } : undefined, token);
+  return apiPost(`/api/v1/positions/${id}/close`, body.contracts != null ? { contracts: body.contracts } : undefined, token, undefined, opts);
 }
 
 /**
  * POST /api/v1/strategies/{id}/close — atomic multi-leg close when supported.
  */
-export function closeStrategy(strategyId: string, token: string): Promise<Position[]> {
-  return apiPost(`/api/v1/strategies/${strategyId}/close`, undefined, token);
+export function closeStrategy(strategyId: string, token: string, opts?: RequestOptions): Promise<Position[]> {
+  return apiPost(`/api/v1/strategies/${strategyId}/close`, undefined, token, undefined, opts);
 }
 
 export function isUnsupportedCloseError(err: unknown): boolean {
