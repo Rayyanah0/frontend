@@ -2,6 +2,7 @@
 // Mirrors the server-side engine in backend/src/main.rs closely enough for
 // client-side previews; trades still settle against the on-chain price.
 
+import { formatNumber, formatPrice, formatStrike } from "./format";
 export interface Greeks {
   premium: number;
   delta: number;
@@ -89,11 +90,13 @@ export function seededRandom(seed: number): number {
   return x - Math.floor(x);
 }
 
+/**
+ * Legacy magnitude-based helpers, kept as thin NaN/zero-safe wrappers over
+ * `./format`. Prefer the instrument-aware formatters in `./format`.
+ */
 export const fmtN = (n: number, d = 4) =>
-  n === 0 ? "—" : Math.abs(n) < 0.0001 ? n.toExponential(2) : n.toFixed(d);
+  !Number.isFinite(n) ? formatNumber(n, d) : Math.abs(n) > 0 && Math.abs(n) < 0.0001 ? n.toExponential(2) : formatNumber(n, d);
 
-export const fmtSpot = (n: number) =>
-  n >= 1000 ? `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `$${n.toFixed(4)}`;
+export const fmtSpot = (n: number) => (n >= 1000 ? formatPrice("BTC", n) : formatPrice("XLM", n));
 
-export const fmtK = (n: number) =>
-  n >= 1000 ? n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : n.toFixed(4);
+export const fmtK = (n: number) => (n >= 1000 ? formatStrike("BTC", n) : formatStrike("XLM", n));

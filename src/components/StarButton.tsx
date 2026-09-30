@@ -32,6 +32,7 @@ export function StarButton({ sym }: { sym: string }) {
     <button
       onClick={toggle}
       disabled={!token || pending}
+      className="zn-tap zn-tap-w"
       title={!token ? "Connect your wallet to use the watchlist" : isFavorite ? `Remove ${sym} from watchlist` : `Add ${sym} to watchlist`}
       style={{
         background: "none", border: "none", cursor: !token ? "default" : "pointer", padding: 2, lineHeight: 1,

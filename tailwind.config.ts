@@ -20,6 +20,10 @@ const config: Config = {
         "zn-hi":      "#F3EEE3",
         "zn-mid":     "#9C9484",
         "zn-lo":      "#5C5648",
+        "zn-heat-lo": "#362A14",
+        "zn-heat-hi": "#E8D6A8",
+        "zn-heat-neg":"#B65640",
+        "zn-heat-pos":"#5C9A6B",
       },
       fontFamily: {
         serif: ["Fraunces", "Georgia", "serif"],

@@ -32,6 +32,8 @@ export function VolSurfaceHeatmap({ baseVol, selectedExpiryDays }: Props) {
       <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--text-lo)", marginBottom: 8 }}>
         Volatility Surface
       </div>
+      {/* Horizontal scroll belongs to this element, not the page. */}
+      <div className="zn-table-scroll zn-no-scrollbar">
       <table style={{ borderCollapse: "collapse" }}>
         <thead>
           <tr>
@@ -75,6 +77,7 @@ export function VolSurfaceHeatmap({ baseVol, selectedExpiryDays }: Props) {
           })}
         </tbody>
       </table>
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
         <span className="num" style={{ fontSize: 9, color: "var(--text-lo)" }}>{(minIv * 100).toFixed(0)}%</span>
         <div style={{

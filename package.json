@@ -7,27 +7,39 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "api:check": "tsx scripts/api-check.ts"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
+    "@creit.tech/stellar-wallets-kit": "2.7.0",
+    "@stellar/freighter-api": "^2.0.0",
+    "@stellar/stellar-sdk": "12.3.0",
     "next": "14.2.3",
     "react": "^18",
     "react-dom": "^18",
-    "@stellar/freighter-api": "^2.0.0",
-    "zod": "^3.23.8",
-    "@tanstack/react-query": "^5.51.0",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
-    "typescript": "^5",
-    "tsx": "^4.16.0",
+    "@babel/core": "^8.0.6",
+    "@babel/preset-env": "^8.0.6",
+    "@babel/preset-react": "^8.0.1",
+    "@babel/preset-typescript": "^8.0.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "tailwindcss": "^3.4.3",
     "autoprefixer": "^10",
-    "postcss": "^8",
+    "babel-jest": "^30.5.2",
     "eslint": "^8",
-    "eslint-config-next": "14.2.3"
+    "eslint-config-next": "14.2.3",
+    "jest": "^30.5.2",
+    "jest-environment-jsdom": "^30.5.2",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.3",
+    "ts-jest": "^29.4.14",
+    "typescript": "^5"
   }
 }

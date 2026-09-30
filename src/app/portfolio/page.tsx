@@ -13,18 +13,21 @@ import { MARKETS, EXPIRIES, bs, smileVol, fmtN, fmtK } from "../../lib/pricing";
 import { collateralRequired } from "../../lib/collateral";
 import { toCsv, downloadCsv } from "../../lib/csv";
 import { ExportButton } from "../../components/ExportButton";
-import { PortfolioRiskPanel } from "../../components/PortfolioRiskPanel";
+// PortfolioRiskPanel renders a heavy canvas chart — load lazily to keep
+// the portfolio page's initial JS lean (Issue #108 bundle optimization).
+import { PortfolioRiskPanelLazy as PortfolioRiskPanel } from "../../components/lazy";
+import { RulesPanel } from "../../components/RulesPanel";
+import type { MarkedPosition } from "../../lib/managementRules";
+import { useLivePnL, type LivePosition } from "../../lib/hooks/useLivePnL";
+import { GreekExposurePanel } from "../../components/GreekExposurePanel";
+import { SorobanHealthIndicator } from "../../components/SorobanHealthIndicator";
+import { AccountReadinessChecklist } from "../../components/AccountReadinessChecklist";
+import { ReconciliationPanel } from "../../components/ReconciliationPanel";
+import { DepositWithdrawModal } from "../../components/DepositWithdrawModal";
+import { useNetworkReady } from "../../lib/hooks/useNetworkReady";
 
-interface Marked extends Position {
-  spot: number;
-  currentPremium: number;
-  pnl: number;
-  pnlPct: number;
-  liveDelta: number;
-  liveGamma: number;
-  liveTheta: number;
-  liveVega: number;
-}
+// Keep Marked as an alias for LivePosition so downstream code is unchanged
+type Marked = LivePosition;
 
 export default function PortfolioPage() {
   const token = useWalletStore(s => s.token);
@@ -32,7 +35,11 @@ export default function PortfolioPage() {
   const balance = account?.balance ?? 0;
   const collateralLocked = account?.collateral_locked ?? 0;
   const notSignedIn = !token;
+  const networkReady = useNetworkReady();
+  const canSign = networkReady && !notSignedIn;
   const [actionError, setActionError] = useState<string|null>(null);
+  const [showVaultModal, setShowVaultModal] = useState(false);
+  const [vaultModalMode, setVaultModalMode] = useState<"deposit"|"withdraw">("deposit");
 
   // Live from the shared WebSocket feed (SpotFeedProvider) — one
   // connection covers every underlying, so marking every open position
@@ -41,30 +48,9 @@ export default function PortfolioPage() {
   const spots = spotFeed?.prices ?? Object.fromEntries(MARKETS.map(m => [m.sym, m.price]));
   const vols = spotFeed?.vols ?? Object.fromEntries(MARKETS.map(m => [m.sym, m.vol]));
 
-  // Reprices with the same static expiry_days-as-t the backend itself
-  // uses for closing/rolling (see the note in backend/README.md) — this
-  // way the preview shown here matches what a close/roll will actually
-  // produce, rather than decaying against a real elapsed-time clock the
-  // backend doesn't track.
-  const marked = useMemo<Marked[]>(() => backendPositions.map(p => {
-    const spot = spots[p.underlying] ?? MARKETS.find(m => m.sym === p.underlying)?.price ?? 0;
-    const baseVol = vols[p.underlying] ?? MARKETS.find(m => m.sym === p.underlying)?.vol ?? 0.5;
-    const t = p.expiry_days / 365;
-    const vol = smileVol(baseVol, p.strike / spot);
-    const g = bs(spot, p.strike, vol, t, p.option_type === "call");
-    const entryTotal = p.entry_premium * p.contracts;
-    const currentPremium = g.premium * p.contracts;
-    // Long: profit when current value rises above what was paid.
-    // Short: profit when it costs less than the premium collected to close it out.
-    const pnl = p.position_type === "short" ? entryTotal - currentPremium : currentPremium - entryTotal;
-    return {
-      ...p, spot, currentPremium, pnl,
-      pnlPct: entryTotal > 0 ? (pnl / entryTotal) * 100 : 0,
-      liveDelta: g.delta, liveGamma: g.gamma, liveTheta: g.theta, liveVega: g.vega,
-    };
-  }), [backendPositions, spots, vols]);
-
-  const totalPnl = useMemo(() => marked.reduce((s, p) => s + p.pnl, 0), [marked]);
+  // Live P&L streaming — throttled to 4 Hz max, flash animations on
+  // changed cells, and an aria-live announcement cadence for screen readers.
+  const { marked, totalPnl, announcementSummary } = useLivePnL(backendPositions, spotFeed);
 
   const strategyGroups = useMemo(() => {
     const byId = new Map<string, Marked[]>();
@@ -168,14 +154,41 @@ export default function PortfolioPage() {
     <div style={{display:"flex",flexDirection:"column",height:"100vh",background:"var(--bg)",overflow:"hidden",fontFamily:"var(--font-sans)"}}>
       <AppHeader>
         <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:8}}>
+          <SorobanHealthIndicator />
+          <div style={{width:1,height:16,background:"var(--border-default)",margin:"0 4px"}}/>
           <div style={{width:5,height:5,borderRadius:"50%",background:"var(--call)"}}/>
           <span style={{fontSize:10,color:"var(--text-lo)"}}>Marked to market · Stellar Testnet</span>
           <div style={{width:1,height:16,background:"var(--border-default)",margin:"0 8px"}}/>
+          <button
+            onClick={()=>{setVaultModalMode("deposit");setShowVaultModal(true);}}
+            aria-label="Deposit collateral"
+            style={{padding:"4px 10px",fontSize:11,fontWeight:700,background:"var(--call-dim)",color:"var(--call)",border:"1px solid var(--call)",cursor:"pointer"}}>
+            Deposit
+          </button>
+          <button
+            onClick={()=>{setVaultModalMode("withdraw");setShowVaultModal(true);}}
+            aria-label="Withdraw collateral"
+            style={{padding:"4px 10px",fontSize:11,fontWeight:700,background:"var(--bg-overlay)",color:"var(--text-mid)",border:"1px solid var(--border-default)",cursor:"pointer"}}>
+            Withdraw
+          </button>
           <WalletConnect />
         </div>
       </AppHeader>
 
       <div style={{flex:1,overflowY:"auto"}}>
+        {/* Screen-reader-only live region: announced at most every 30s or on significant P&L change */}
+        <div
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          style={{
+            position:"absolute",width:1,height:1,padding:0,margin:-1,
+            overflow:"hidden",clip:"rect(0,0,0,0)",whiteSpace:"nowrap",border:0,
+          }}
+        >
+          {announcementSummary}
+        </div>
+
         <div style={{maxWidth:1080,margin:"0 auto",padding:"32px 24px 64px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div>
@@ -230,6 +243,44 @@ export default function PortfolioPage() {
           )}
 
           {backendPositions.length>0 && <PortfolioRiskPanel positions={backendPositions} spots={spots} />}
+          {backendPositions.length>0 && (
+            <GreekExposurePanel
+              positions={backendPositions}
+              spots={spots}
+              vols={vols}
+              backendGreeks={netGreeks}
+            />
+          )}
+
+          {/* On-chain readiness & reconciliation — shown when wallet is connected */}
+          {!notSignedIn && (
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24}}>
+              <AccountReadinessChecklist />
+              <ReconciliationPanel positions={backendPositions} />
+            </div>
+          )}
+
+          {/* Management Rules — persisted per wallet, evaluated live against marked positions */}
+          {token && account && marked.length>0 && (
+            <div style={{marginBottom:24}}>
+              <RulesPanel
+                positions={marked as MarkedPosition[]}
+                walletAddress={account.wallet_address}
+                onExecuteRule={async (alert) => {
+                  // Translate rule action into the appropriate portfolio operation.
+                  // Roll variants (roll_out, roll_up, roll_down) will be wired to the
+                  // actual roll API once the rule action model is expanded — for now
+                  // they fall through to close so the confirmation flow still works.
+                  setActionError(null);
+                  try {
+                    await close(alert.positionId);
+                  } catch (err) {
+                    setActionError(err instanceof ApiError ? err.message : "Failed to execute rule");
+                  }
+                }}
+              />
+            </div>
+          )}
 
           {strategyGroups.length>0 && (
             <div style={{marginBottom:24,display:"flex",flexDirection:"column",gap:8}}>
@@ -311,8 +362,8 @@ export default function PortfolioPage() {
                         <td className="num" style={{padding:"10px",fontSize:11,textAlign:"right",color:"var(--text-mid)"}}>
                           {p.position_type==="short"?"+":""}${fmtN(p.entry_premium*p.contracts,2)}
                         </td>
-                        <td className="num" style={{padding:"10px",fontSize:11,textAlign:"right",color:"var(--text-hi)"}}>${fmtN(p.currentPremium,2)}</td>
-                        <td className="num" style={{padding:"10px",fontSize:11,textAlign:"right",fontWeight:600,color:p.pnl>=0?"var(--call)":"var(--put)"}}>
+                        <td className={`num${p.premiumFlash==="up"?" flash-up":p.premiumFlash==="down"?" flash-down":""}`} style={{padding:"10px",fontSize:11,textAlign:"right",color:"var(--text-hi)"}}>${fmtN(p.currentPremium,2)}</td>
+                        <td className={`num${p.pnlFlash==="up"?" flash-up":p.pnlFlash==="down"?" flash-down":""}`} style={{padding:"10px",fontSize:11,textAlign:"right",fontWeight:600,color:p.pnl>=0?"var(--call)":"var(--put)"}}>
                           {p.pnl>=0?"+":"−"}${fmtN(Math.abs(p.pnl),2)} <span style={{opacity:0.6}}>({p.pnlPct>=0?"+":""}{p.pnlPct.toFixed(1)}%)</span>
                         </td>
                         <td className="num" style={{padding:"10px",fontSize:11,textAlign:"right",color:"var(--text-mid)"}}>{(sign*p.liveDelta*p.contracts).toFixed(3)}</td>
@@ -401,6 +452,13 @@ export default function PortfolioPage() {
           )}
         </div>
       </div>
+
+      {showVaultModal && (
+        <DepositWithdrawModal
+          initialMode={vaultModalMode}
+          onClose={()=>setShowVaultModal(false)}
+        />
+      )}
     </div>
   );
 }

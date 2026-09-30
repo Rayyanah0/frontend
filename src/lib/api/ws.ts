@@ -10,27 +10,34 @@ import type { SpotResponse } from "./types";
  * closes the socket and suppresses the pending onClose call.
  */
 export function subscribeToSpotFeed(onUpdate: (data: SpotResponse) => void, onClose?: () => void): () => void {
-  const socket = new WebSocket(wsUrl("/api/v1/ws/spot"));
   let closed = false;
+  let socket: WebSocket | undefined;
 
-  socket.onmessage = (event) => {
-    try {
-      onUpdate(JSON.parse(event.data));
-    } catch {
-      // Ignore a malformed frame rather than tearing down the socket.
-    }
-  };
-
-  const handleClose = () => {
+  void wsUrl("/api/v1/ws/spot").then((url) => {
     if (closed) return;
-    closed = true;
-    onClose?.();
-  };
-  socket.onclose = handleClose;
-  socket.onerror = handleClose;
+    socket = new WebSocket(url);
+
+    socket.onmessage = (event) => {
+      try {
+        onUpdate(JSON.parse(event.data));
+      } catch {
+        // Ignore a malformed frame rather than tearing down the socket.
+      }
+    };
+
+    const handleClose = () => {
+      if (closed) return;
+      closed = true;
+      onClose?.();
+    };
+    socket.onclose = handleClose;
+    socket.onerror = handleClose;
+  }).catch(() => {
+    if (!closed) onClose?.();
+  });
 
   return () => {
     closed = true; // cleanup shouldn't trigger the caller's reconnect logic
-    socket.close();
+    socket?.close();
   };
 }

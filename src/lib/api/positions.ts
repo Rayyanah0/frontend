@@ -46,6 +46,15 @@ export function closePosition(id: string, token: string): Promise<Position> {
   return apiPost(`/api/v1/positions/${id}/close`, undefined, token, PositionSchema);
 }
 
+export {
+  closePositionPartial,
+  closeStrategy,
+  detectCloseFeatures,
+  isUnsupportedCloseError,
+  type ClosePositionBody,
+  type FeatureFlags,
+} from "./close";
+
 export interface RollResult {
   closed?: Position;
   opened?: Position;

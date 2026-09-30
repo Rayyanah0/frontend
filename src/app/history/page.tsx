@@ -9,6 +9,9 @@ import { useHydrated } from "../../lib/useHydrated";
 import { fmtN, fmtK } from "../../lib/pricing";
 import { toCsv, downloadCsv } from "../../lib/csv";
 import { ExportButton } from "../../components/ExportButton";
+import { ExpandableCard } from "../../components/ExpandableCard";
+import { useIsCompact } from "../../lib/useMediaQuery";
+import { PerformanceAnalytics } from "../../components/PerformanceAnalytics";
 
 function fmtDate(iso: string | null) {
   if (!iso) return "—";
@@ -18,12 +21,13 @@ function fmtDate(iso: string | null) {
 }
 
 export default function HistoryPage() {
+  const isCompact = useIsCompact();
   const hydrated = useHydrated();
   const token = useWalletStore(s => s.token);
   const { trades, stats } = useBackendHistory(hydrated ? token : null);
 
   return (
-    <div style={{display:"flex",flexDirection:"column",height:"100vh",background:"var(--bg)",overflow:"hidden",fontFamily:"var(--font-sans)"}}>
+    <div className="zn-shell" style={{display:"flex",flexDirection:"column",background:"var(--bg)",overflow:"hidden",fontFamily:"var(--font-sans)"}}>
       <AppHeader>
         <div style={{marginLeft:"auto"}}>
           <WalletConnect />
@@ -31,10 +35,10 @@ export default function HistoryPage() {
       </AppHeader>
 
       <div style={{flex:1,overflowY:"auto"}}>
-        <div style={{maxWidth:1080,margin:"0 auto",padding:"32px 24px 64px"}}>
+        <div className="zn-page" style={{maxWidth:1080,margin:"0 auto",padding:"32px 24px 64px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div>
-              <h1 style={{fontFamily:"var(--font-serif)",fontSize:26,fontWeight:600,marginBottom:4}}>Trade History</h1>
+              <h1 className="zn-page-title" style={{fontFamily:"var(--font-serif)",fontSize:26,fontWeight:600,marginBottom:4}}>Trade History</h1>
               <p style={{fontSize:13,color:"var(--text-mid)",marginBottom:28}}>
                 {!token ? "Connect your wallet to see your trade history." : `${trades.length} closed trade${trades.length===1?"":"s"}`}
               </p>
@@ -61,19 +65,21 @@ export default function HistoryPage() {
           </div>
 
           {stats.trade_count>0 && (
-            <div style={{display:"flex",gap:0,marginBottom:24,border:"1px solid var(--border-default)",background:"var(--bg-raised)"}}>
+            <div className="zn-stat-strip zn-stat-strip--trio" style={{marginBottom:24}}>
               {[
                 {label:"Closed Trades", value:String(stats.trade_count), color:"var(--text-hi)"},
                 {label:"Total Realized P&L", value:`${stats.total_realized_pnl>=0?"+":"−"}$${fmtN(Math.abs(stats.total_realized_pnl),2)}`, color:stats.total_realized_pnl>=0?"var(--call)":"var(--put)"},
                 {label:"Win Rate", value:`${stats.trade_count>0?((stats.win_count/stats.trade_count)*100).toFixed(0):"0"}%`, color:"var(--atm)"},
-              ].map((s,i)=>(
-                <div key={s.label} style={{flex:1,padding:"14px 18px",borderRight:i<2?"1px solid var(--border-default)":"none"}}>
+              ].map((s)=>(
+                <div key={s.label} className="zn-stat-cell">
                   <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text-lo)",marginBottom:6}}>{s.label}</div>
                   <div className="num" style={{fontSize:17,fontWeight:600,color:s.color}}>{s.value}</div>
                 </div>
               ))}
             </div>
           )}
+
+          {trades.length>0 && <PerformanceAnalytics trades={trades} />}
 
           {trades.length===0 ? (
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
@@ -82,6 +88,82 @@ export default function HistoryPage() {
               <Link href="/options" style={{fontSize:13,color:"var(--brand)",textDecoration:"none"}}>
                 Open the options chain →
               </Link>
+            </div>
+          ) : isCompact ? (
+            <div style={{display:"flex",flexDirection:"column"}}>
+              {trades.map(r=>{
+                const pnlFormatted = r.realized_pnl===null ? "—" : `${r.realized_pnl>=0?"+":"−"}$${fmtN(Math.abs(r.realized_pnl),2)}`;
+                const pnlColor = r.realized_pnl===null ? "var(--text-lo)" : r.realized_pnl>=0 ? "var(--call)" : "var(--put)";
+                return (
+                  <ExpandableCard
+                    key={r.id}
+                    title={
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <span style={{fontSize:13,fontWeight:600,color:"var(--text-hi)"}}>{r.underlying}</span>
+                        <span style={{fontSize:10,fontWeight:600,padding:"2px 6px",
+                          background:r.position_type==="short"?"var(--put-dim)":"var(--call-dim)",
+                          color:r.position_type==="short"?"var(--put)":"var(--call)",textTransform:"uppercase"}}>
+                          {r.position_type}
+                        </span>
+                        <span style={{fontSize:10,fontWeight:600,padding:"2px 6px",
+                          background:r.option_type==="call"?"var(--call-dim)":"var(--put-dim)",
+                          color:r.option_type==="call"?"var(--call)":"var(--put)",textTransform:"uppercase"}}>
+                          {r.option_type}
+                        </span>
+                      </div>
+                    }
+                    subtitle={
+                      <span className="num">
+                        K={fmtK(r.strike)} · {r.expiry_days}D · {r.contracts}×
+                      </span>
+                    }
+                    trailing={
+                      <div style={{textAlign:"right"}}>
+                        <div className="num" style={{fontSize:13,fontWeight:600,color:pnlColor}}>
+                          {pnlFormatted}
+                        </div>
+                        <div style={{fontSize:10,color:"var(--text-mid)",textTransform:"capitalize"}}>
+                          {r.status}
+                        </div>
+                      </div>
+                    }
+                    details={
+                      <>
+                        <div className="zn-kv">
+                          <span style={{color:"var(--text-lo)"}}>Closed At</span>
+                          <span style={{color:"var(--text-hi)",fontSize:11}}>{fmtDate(r.closed_at)}</span>
+                        </div>
+                        <div className="zn-kv">
+                          <span style={{color:"var(--text-lo)"}}>Status</span>
+                          <span style={{color:"var(--text-hi)",fontSize:11,textTransform:"capitalize"}}>{r.status}</span>
+                        </div>
+                        <div className="zn-kv">
+                          <span style={{color:"var(--text-lo)"}}>Strike</span>
+                          <span className="num" style={{color:"var(--text-hi)"}}>{fmtK(r.strike)}</span>
+                        </div>
+                        <div className="zn-kv">
+                          <span style={{color:"var(--text-lo)"}}>Entry Premium</span>
+                          <span className="num" style={{color:"var(--text-mid)"}}>
+                            ${fmtN(r.entry_premium*r.contracts,2)}
+                          </span>
+                        </div>
+                        <div className="zn-kv">
+                          <span style={{color:"var(--text-lo)"}}>Close Premium</span>
+                          <span className="num" style={{color:"var(--text-hi)"}}>
+                            {r.close_premium===null?"—":`$${fmtN(r.close_premium*r.contracts,2)}`}
+                          </span>
+                        </div>
+                        <div className="zn-kv">
+                          <span style={{color:"var(--text-lo)"}}>Realized P&L</span>
+                          <span className="num" style={{color:pnlColor,fontWeight:600}}>
+                            {pnlFormatted}
+                          </span>
+                        </div>
+                      </>
+                    }
+                  />
+                );
+              })}
             </div>
           ) : (
             <div style={{border:"1px solid var(--border-default)",background:"var(--bg-raised)",overflowX:"auto"}}>

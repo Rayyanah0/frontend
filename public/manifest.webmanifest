@@ -1,0 +1,14 @@
+{
+  "name": "Zenith | On-chain Options on Stellar",
+  "short_name": "Zenith",
+  "description": "Options terminal for Stellar Soroban.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#14130F",
+  "theme_color": "#14130F",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

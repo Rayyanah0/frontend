@@ -6,7 +6,33 @@ import { ContractError, reportContractError } from "./contractError";
 
 type Schema<T> = z.ZodType<T, z.ZodTypeDef, unknown>;
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8081";
+import { activeStellarNetwork, env } from "../../env";
+
+interface RuntimeConfig {
+  apiUrl: string;
+  network: "testnet" | "mainnet";
+  rpcUrl: string;
+  passphrase: string;
+  contractId: string | null;
+}
+
+let runtimeConfigPromise: Promise<RuntimeConfig> | undefined;
+
+export function getRuntimeConfig(): Promise<RuntimeConfig> {
+  runtimeConfigPromise ??= typeof window === "undefined"
+    ? Promise.resolve({
+        apiUrl: env.NEXT_PUBLIC_API_URL,
+        network: env.NEXT_PUBLIC_STELLAR_NETWORK,
+        rpcUrl: activeStellarNetwork.rpcUrl,
+        passphrase: activeStellarNetwork.passphrase,
+        contractId: activeStellarNetwork.contractId ?? null,
+      })
+    : fetch("/api/runtime-config", { cache: "no-store" }).then((response) => {
+        if (!response.ok) throw new Error(`Runtime config request failed (${response.status})`);
+        return response.json() as Promise<RuntimeConfig>;
+      });
+  return runtimeConfigPromise;
+}
 
 export class ApiError extends Error {
   status: number;
@@ -17,11 +43,49 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init: RequestInit, token?: string | null, schema?: Schema<T>): Promise<T> {
+/**
+ * Injected by the wallet store (keeps this layer from importing it and
+ * creating a cycle). Resolves to a fresh token, or null if the user
+ * rejected / re-auth failed.
+ */
+type UnauthorizedHandler = () => Promise<string | null>;
+let onUnauthorized: UnauthorizedHandler | null = null;
+let reauthInFlight: Promise<string | null> | null = null;
+
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null) {
+  onUnauthorized = handler;
+}
+
+/** Single-flight: every concurrent 401 awaits the same re-auth call. */
+function reauthenticate(): Promise<string | null> {
+  if (!onUnauthorized) return Promise.resolve(null);
+  if (!reauthInFlight) {
+    reauthInFlight = onUnauthorized()
+      .catch(() => null)
+      .finally(() => {
+        reauthInFlight = null;
+      });
+  }
+  return reauthInFlight;
+}
+
+async function request<T>(path: string, init: RequestInit, token?: string | null, schema?: Schema<T>, retried = false): Promise<T> {
   const headers = new Headers(init.headers);
   if (token) headers.set("authorization", `Bearer ${token}`);
 
-  const res = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  const { apiUrl } = await getRuntimeConfig();
+  const res = await fetch(`${apiUrl}${path}`, { ...init, headers });
+
+  // Only authed requests are recovered; auth endpoints (nonce/verify) never loop.
+  if (res.status === 401 && token && !retried && !path.startsWith("/api/v1/auth/")) {
+    const fresh = await reauthenticate();
+    if (!fresh) throw new ApiError(401, "Session expired");
+    const method = (init.method ?? "GET").toUpperCase();
+    // Never silently replay non-idempotent calls (open/close/roll): the
+    // session is restored, but the user must re-confirm the action.
+    if (method !== "GET") throw new ApiError(401, "Session restored — please confirm and retry this action");
+    return request<T>(path, init, fresh, true);
+  }
 
   if (!res.ok) {
     let message = res.statusText || `request failed with ${res.status}`;
@@ -71,6 +135,7 @@ export function apiDelete<T>(path: string, token?: string | null): Promise<T> {
   return request<T>(path, { method: "DELETE" }, token);
 }
 
-export function wsUrl(path: string): string {
-  return `${API_BASE_URL.replace(/^http/, "ws")}${path}`;
+export async function wsUrl(path: string): Promise<string> {
+  const { apiUrl } = await getRuntimeConfig();
+  return `${apiUrl.replace(/^http/, "ws")}${path}`;
 }

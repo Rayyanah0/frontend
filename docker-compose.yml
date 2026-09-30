@@ -1,0 +1,58 @@
+version: "3.9"
+
+# ---------------------------------------------------------------------------
+# Zenith — docker-compose development / staging stack
+#
+# Profiles:
+#   (default)  — frontend only, mock mode enabled (no backend required)
+#   full       — frontend + backend API
+#
+# Quick start:
+#   docker compose up                     # mock mode, frontend only
+#   docker compose --profile full up      # with real backend
+#
+# Runtime overrides (copy .env.compose.example to .env.compose and edit):
+#   ZENITH_BACKEND_IMAGE   backend image tag (default: ghcr.io/zenith-options/backend:latest)
+#   ZENITH_FRONTEND_IMAGE  frontend image tag (default: ghcr.io/zenith-options/frontend:latest)
+# ---------------------------------------------------------------------------
+
+services:
+  frontend:
+    image: ${ZENITH_FRONTEND_IMAGE:-ghcr.io/zenith-options/frontend:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8081}
+        NEXT_PUBLIC_NETWORK: ${NEXT_PUBLIC_NETWORK:-testnet}
+    ports:
+      - "3000:3000"
+    environment:
+      # Runtime values — override at startup without rebuilding the image.
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://backend:8081}
+      NEXT_PUBLIC_RPC_URL: ${NEXT_PUBLIC_RPC_URL:-https://soroban-testnet.stellar.org}
+      NEXT_PUBLIC_NETWORK: ${NEXT_PUBLIC_NETWORK:-testnet}
+      NEXT_PUBLIC_CONTRACT_ID: ${NEXT_PUBLIC_CONTRACT_ID:-}
+      MOCK_MODE: ${MOCK_MODE:-true}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  backend:
+    profiles: ["full"]
+    image: ${ZENITH_BACKEND_IMAGE:-ghcr.io/zenith-options/backend:latest}
+    ports:
+      - "8081:8081"
+    environment:
+      RUST_LOG: ${RUST_LOG:-info}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

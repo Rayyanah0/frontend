@@ -1,31 +1,50 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { PayoffDiagram } from "../components/PayoffDiagram";
 import { Logo } from "../components/Logo";
 import { bs, smileVol, fmtN, fmtK, MARKETS } from "../lib/pricing";
+import { ProvenanceBadge } from "../components/FeedStatus";
 import { useBackendData } from "../lib/context/BackendDataContext";
+import { useSpotFeedContext } from "../lib/context/SpotFeedContext";
+import { getChain } from "../lib/api/market";
+import type { OptionChainEntry } from "../lib/api/types";
 
 const XLMPRICE=0.1182, XLMVOL=0.82, T=30/365;
 
 export default function Home() {
-  const [spot,setSpot]=useState(XLMPRICE);
+  const previewRef=useRef<HTMLElement>(null);
+  const { data:feed, status:feedStatus } = useSpotFeedContext(previewRef);
+  // Server + first client render use the static seed (no hydration mismatch);
+  // live values replace it once the shared feed delivers a message.
+  const live = feed!==null && feedStatus==="open";
+  const spot=feed?.prices.XLM ?? XLMPRICE;
+  const xlmVol=feed?.vols.XLM ?? XLMVOL;
   const { watchlist } = useBackendData();
   const favMarkets=MARKETS.filter(m=>watchlist.some(w=>w.underlying===m.sym));
 
+  // Backend chain rows (keyed by strike offset) once live; local BS fallback otherwise.
+  const [backendChain,setBackendChain]=useState<OptionChainEntry[]|null>(null);
   useEffect(()=>{
-    const id=setInterval(()=>setSpot(p=>Math.max(0.05,p+(Math.random()-0.5)*0.0004)),2000);
-    return ()=>clearInterval(id);
-  },[]);
+    if(!live) return;
+    let cancelled=false;
+    getChain("XLM",30).then(e=>{if(!cancelled)setBackendChain(e)}).catch(()=>{});
+    return()=>{cancelled=true};
+  },[live]);
 
   const previewChain=useMemo(()=>{
+    if(live&&backendChain&&backendChain.length>=5){
+      const mid=backendChain.reduce((bi,e,i,arr)=>Math.abs(e.strike-spot)<Math.abs(arr[bi].strike-spot)?i:bi,0);
+      const start=Math.max(0,Math.min(backendChain.length-5,mid-2));
+      return backendChain.slice(start,start+5).map(e=>({strike:e.strike,call:e.call,put:e.put,itm:e.is_itm_call}));
+    }
     const strikes=[spot*0.90,spot*0.95,spot,spot*1.05,spot*1.10];
     return strikes.map(K=>{
-      const vol=smileVol(XLMVOL,K/spot);
+      const vol=smileVol(xlmVol,K/spot);
       return{strike:K,call:bs(spot,K,vol,T,true),put:bs(spot,K,vol,T,false),itm:spot>K};
     });
-  },[spot]);
+  },[spot,xlmVol,live,backendChain]);
 
   return (
     <div style={{fontFamily:"var(--font-sans)",background:"var(--bg)",minHeight:"100vh",color:"var(--text-hi)"}}>
@@ -116,7 +135,7 @@ export default function Home() {
             <div style={{padding:20,background:"var(--bg-raised)",border:"1px solid var(--border-default)",borderRadius:0}}>
               <PayoffDiagram
                 spot={spot} strike={spot*1.05}
-                premium={bs(spot,spot*1.05,smileVol(XLMVOL,1.05),T,true).premium}
+                premium={bs(spot,spot*1.05,smileVol(xlmVol,1.05),T,true).premium}
                 isCall={true} contracts={100}
                 width={380} height={200}
               />
@@ -137,7 +156,7 @@ export default function Home() {
       </section>
 
       {/* LIVE CHAIN PREVIEW */}
-      <section style={{maxWidth:1080,margin:"0 auto",padding:"0 24px 64px"}}>
+      <section ref={previewRef} style={{maxWidth:1080,margin:"0 auto",padding:"0 24px 64px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
           <div>
             <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:"0.12em",color:"var(--text-lo)",marginBottom:4}}>
@@ -146,8 +165,11 @@ export default function Home() {
             <h2 style={{fontFamily:"var(--font-serif)",fontSize:19,fontWeight:600}}>XLM-USD Options Chain · 30D</h2>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:6,height:6,borderRadius:"50%",background:"var(--call)"}}/>
-            <span className="num" style={{fontSize:14,fontWeight:600}}>{fmtK(spot)}</span>
+            <div style={{width:6,height:6,borderRadius:"50%",background:live?"var(--call)":"var(--text-lo)"}}/>
+            <span style={{fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text-lo)"}}>
+              {live?"Live":"Static snapshot"}
+            </span>
+            <span className="num" style={{fontSize:14,fontWeight:600}}>{fmtK(spot)}</span> <ProvenanceBadge source="seed"/>
             <Link href="/options" style={{padding:"6px 14px",border:"1px solid var(--border-strong)",
               borderRadius:0,fontSize:12,color:"var(--text-mid)",textDecoration:"none",
               transition:"color 120ms"}}
@@ -224,7 +246,7 @@ export default function Home() {
               <Link key={m.sym} href={`/options?u=${m.sym}`} style={{flex:1,padding:"14px 18px",textDecoration:"none",
                 borderRight:i<favMarkets.length-1?"1px solid var(--border-default)":"none"}}>
                 <div style={{fontSize:12,fontWeight:600,color:"var(--text-hi)",marginBottom:4}}>{m.sym}</div>
-                <div className="num" style={{fontSize:15,fontWeight:600,color:"var(--text-hi)"}}>{fmtK(m.sym==="XLM"?spot:m.price)}</div>
+                <div className="num" style={{fontSize:15,fontWeight:600,color:"var(--text-hi)"}}>{fmtK(m.sym==="XLM"?spot:(feed?.prices[m.sym]??m.price))}</div>
                 <div style={{fontSize:10,color:"var(--text-lo)"}}>IV {Math.round(m.vol*100)}%</div>
               </Link>
             ))}

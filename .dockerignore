@@ -1,0 +1,30 @@
+# .dockerignore
+# Keep the build context small — exclude everything the builder stage
+# doesn't need to copy into the image.
+
+# Dependencies (installed fresh inside the image)
+node_modules/
+
+# Next.js build artefacts (produced inside the image)
+.next/
+
+# Local environment files — never bake secrets into the image
+.env
+.env.*
+!.env.local.example
+
+# Development-only files
+*.md
+.git/
+.gitignore
+.github/
+
+# Editor artefacts
+.DS_Store
+*.pem
+.vscode/
+.idea/
+
+# CI / test output
+coverage/
+npm-debug.log*

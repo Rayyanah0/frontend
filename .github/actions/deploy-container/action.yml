@@ -1,0 +1,71 @@
+name: Deploy tagged frontend image
+description: Pull a published GHCR image and replace the running frontend container over SSH.
+inputs:
+  image:
+    description: Fully qualified, immutable image tag to deploy
+    required: true
+  host:
+    description: SSH host
+    required: true
+  username:
+    description: SSH username
+    required: true
+  ssh_key:
+    description: SSH private key
+    required: true
+  registry_username:
+    description: GHCR read-only username
+    required: true
+  registry_token:
+    description: GHCR read-only token
+    required: true
+  api_url:
+    description: Runtime backend API origin
+    required: true
+  stellar_network:
+    description: Runtime Stellar network
+    required: true
+  testnet_contract_id:
+    description: Testnet contract C... StrKey
+    required: false
+  mainnet_contract_id:
+    description: Mainnet contract C... StrKey
+    required: false
+  app_port:
+    description: Host port forwarded to the container
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Replace running container
+      uses: appleboy/ssh-action@v1.2.0
+      env:
+        IMAGE: ${{ inputs.image }}
+        REGISTRY_USERNAME: ${{ inputs.registry_username }}
+        REGISTRY_TOKEN: ${{ inputs.registry_token }}
+        API_URL: ${{ inputs.api_url }}
+        STELLAR_NETWORK: ${{ inputs.stellar_network }}
+        TESTNET_CONTRACT_ID: ${{ inputs.testnet_contract_id }}
+        MAINNET_CONTRACT_ID: ${{ inputs.mainnet_contract_id }}
+        APP_PORT: ${{ inputs.app_port }}
+      with:
+        host: ${{ inputs.host }}
+        username: ${{ inputs.username }}
+        key: ${{ inputs.ssh_key }}
+        envs: IMAGE,REGISTRY_USERNAME,REGISTRY_TOKEN,API_URL,STELLAR_NETWORK,TESTNET_CONTRACT_ID,MAINNET_CONTRACT_ID,APP_PORT
+        script: |
+          set -eu
+          export DOCKER_CONFIG="$(mktemp -d)"
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$REGISTRY_USERNAME" --password-stdin
+          docker pull "$IMAGE"
+          docker logout ghcr.io
+          docker rm -f zenith-frontend >/dev/null 2>&1 || true
+          docker run -d --name zenith-frontend --restart unless-stopped \
+            --publish "$APP_PORT:3000" \
+            --env NODE_ENV=production \
+            --env NEXT_PUBLIC_API_URL="$API_URL" \
+            --env NEXT_PUBLIC_STELLAR_NETWORK="$STELLAR_NETWORK" \
+            --env NEXT_PUBLIC_STELLAR_TESTNET_CONTRACT_ID="$TESTNET_CONTRACT_ID" \
+            --env NEXT_PUBLIC_STELLAR_MAINNET_CONTRACT_ID="$MAINNET_CONTRACT_ID" \
+            "$IMAGE"
